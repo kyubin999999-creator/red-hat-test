@@ -12,7 +12,7 @@ st.markdown("""
 3. **3단계 최종전:** 지상으로 돌아와 총의 강력한 위력으로 남은 늑대들을 **완전히 소탕**한 뒤, 최상단의 **할머니 집🏡**으로 들어가면 대망의 트루 엔딩!
 """)
 
-# --- 원본 완벽 복원 HTML5 게임 컴포넌트 ---
+# --- 최종 밸런싱 및 그래픽 동기화 HTML5 게임 컴포넌트 ---
 game_js = """
 <div style="text-align: center; font-family: 'Malgun Gothic', sans-serif; color: white;">
     <div style="display: flex; justify-content: space-between; align-items: center; max-width: 440px; margin: 0 auto 12px auto;">
@@ -34,10 +34,11 @@ game_js = """
 
     const TILE_SIZE = 22; const COLS = 20; const ROWS = 20;
 
-    // 💡 버섯(2)이 벽(1) 내부에 갇히지 않도록 오직 길(0) 위에만 정밀하게 재배치한 완벽한 맵 데이터
+    // 💡 최종 스크린샷의 완벽한 맵 레이아웃을 그대로 100% 매핑한 마스터 데이터
+    // 1: 나무벽, 0: 통로, 3: 황금별(⭐), 4: 물웅덩이(파란 블록), 5: 할머니집(🏡 - 정중앙 1칸 통합)
     const forestMap = [
-        [1,1,1,1,1,1,1,1,1,5,5,1,1,1,1,1,1,1,1,1],
-        [1,3,0,0,1,4,4,4,0,1,1,0,4,4,4,1,0,0,3,1],
+        [1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1], // 할머니 집 정중앙 1칸 조율
+        [1,3,0,0,1,4,4,4,0,0,0,0,4,4,4,1,0,0,3,1],
         [1,0,1,0,1,1,1,1,0,1,1,0,1,1,1,1,0,1,0,1],
         [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
         [1,0,1,1,1,1,4,4,4,1,1,4,4,4,1,1,1,1,0,1],
@@ -57,21 +58,6 @@ game_js = """
         [1,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1],
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     ];
-
-    // 초기 버섯 아이템을 설치할 때 벽(1), 별(3), 물(4), 집(5)을 제외한 순수 길 위에만 배치하기 위한 동적 맵 복사
-    let grid = [];
-
-    function initForestGrid() {
-        grid = JSON.parse(JSON.stringify(forestMap));
-        for (let r = 0; r < ROWS; r++) {
-            for (let c = 0; c < COLS; c++) {
-                // 완전히 비어있는 길(0)에만 버섯(2)을 채워 넣음으로써 갇힘 현상 원천 차단
-                if (grid[r][c] === 0) {
-                    grid[r][c] = 2;
-                }
-            }
-        }
-    }
 
     const aquaMap = [
         [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6],
@@ -96,25 +82,27 @@ game_js = """
         [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6]
     ];
 
-    let currentStage = 1; 
+    let currentStage = 1; let grid = [];
     let gameOver = false; let gameWin = false;
 
     let forestKills = 0; let waterKills = 0;
     let hasAquaGear = false; let gearSpawned = false;
     let hasGun = false; let hasKey = false; let keySpawned = false;
 
-    let gearPos = {row: 12, col: 9}; 
-    let gunPos = {row: 10, col: 10};
-    let keyPos = {row: 10, col: 9};
+    let gearPos = {row: 12, col: 9}; let gunPos = {row: 10, col: 10}; let keyPos = {row: 10, col: 9};
 
     let redHat = { x: 9 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: 2 };
-    let wolves = [
-        { x: 1 * TILE_SIZE, y: 3 * TILE_SIZE, dirX: 1, dirY: 0, scared: false, dead: false },
-        { x: 18 * TILE_SIZE, y: 3 * TILE_SIZE, dirX: -1, dirY: 0, scared: false, dead: false },
-        { x: 9 * TILE_SIZE, y: 12 * TILE_SIZE, dirX: 0, dirY: -1, scared: false, dead: false }
-    ];
-
+    let wolves = [];
     let scaredTimer = 0;
+
+    function initForestGrid() {
+        grid = JSON.parse(JSON.stringify(forestMap));
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (grid[r][c] === 0) grid[r][c] = 2; // 순수 빈 길 위에만 버섯 생성
+            }
+        }
+    }
 
     window.addEventListener('keydown', e => {
         if([37, 38, 39, 40].indexOf(e.keyCode) > -1) { e.preventDefault(); canvas.focus(); }
@@ -133,8 +121,8 @@ game_js = """
         
         if(left < 0 || right >= COLS || top < 0 || bottom >= ROWS) return true;
 
-        if ((grid[top][left] === 5 || grid[top][right] === 5 || grid[bottom][left] === 5 || grid[bottom][right] === 5)) {
-            if (currentStage === 3 && wolves.every(w => w.dead)) return false; 
+        if (grid[top][left] === 5 || grid[top][right] === 5 || grid[bottom][left] === 5 || grid[bottom][right] === 5) {
+            if (currentStage === 3 && wolves.every(w => w.dead)) return false; // 늑대 소탕 완료시에만 오픈
             return true;
         }
 
@@ -185,8 +173,7 @@ game_js = """
             }
 
             if (currentStage === 1 && hasAquaGear && grid[currRow][currCol] === 4) {
-                currentStage = 2;
-                grid = JSON.parse(JSON.stringify(aquaMap));
+                currentStage = 2; grid = JSON.parse(JSON.stringify(aquaMap));
                 canvas.style.background = "#0c4a6e"; canvas.style.border = "4px solid #0ea5e9";
                 stageUI.innerHTML = "🗺️ 구역: 2단계 푸른 심해 바다"; stageUI.style.background = "#0284c7";
                 killUI.innerHTML = "🦈 수중 처치: 0/3"; killUI.style.background = "#7f1d1d";
@@ -200,8 +187,7 @@ game_js = """
             }
 
             if (currentStage === 2 && keySpawned && !hasKey && currRow === keyPos.row && currCol === keyPos.col) {
-                hasKey = true; currentStage = 3; 
-                grid = JSON.parse(JSON.stringify(forestMap)); 
+                hasKey = true; currentStage = 3; grid = JSON.parse(JSON.stringify(forestMap)); 
                 canvas.style.background = "#064e3b"; canvas.style.border = "4px solid #f59e0b";
                 stageUI.innerHTML = "🗺️ 구역: 3단계 최종 소탕전"; stageUI.style.background = "#b45309";
                 killUI.innerHTML = "🐺 남은 늑대 제거!"; killUI.style.background = "#b91c1c";
@@ -252,7 +238,7 @@ game_js = """
                     
                     if (currentStage === 1) {
                         forestKills++; killUI.innerHTML = `🐺 숲 늑대 사냥: ${forestKills}/3`;
-                        w.dead = false; w.x = 9*TILE_SIZE; w.y = 12 * TILE_SIZE; 
+                        w.dead = false; w.x = 9*TILE_SIZE; w.y = 8*TILE_SIZE; // 안전 부활 기지 격리
                         if (forestKills === 3) {
                             gearSpawned = true;
                             itemUI.innerHTML = "🎒 장비: 🤿 수영장비 출현!"; itemUI.style.background = "#f59e0b";
@@ -267,7 +253,7 @@ game_js = """
                     } else if (currentStage === 3) {
                         let remaining = wolves.filter(wolf => !wolf.dead).length;
                         if (remaining === 0) {
-                            killUI.innerHTML = "🏡 집 오픈! 할머니에게 완전히 안전하게 탈출하세요!"; killUI.style.background = "#16a34a";
+                            killUI.innerHTML = "🏡 집 오픈! 할머니 오두막으로 안전하게 대피하세요!"; killUI.style.background = "#16a34a";
                         } else {
                             killUI.innerHTML = `🐺 남은 늑대 수: ${remaining}마리`;
                         }
@@ -279,11 +265,14 @@ game_js = """
         });
     }
 
+    // 💡 최종 밸런싱이 맞춰진 완벽한 스폰 센터 위치 지정
     function resetPositions() {
         redHat.x = 9 * TILE_SIZE; redHat.y = 18 * TILE_SIZE; redHat.dirX = 0; redHat.dirY = 0; redHat.nextDirX = 0; redHat.nextDirY = 0;
-        wolves[0] = { x: 1 * TILE_SIZE, y: 3 * TILE_SIZE, dirX: 1, dirY: 0, scared: (currentStage===3||hasGun), dead: false };
-        wolves[1] = { x: 18 * TILE_SIZE, y: 3 * TILE_SIZE, dirX: -1, dirY: 0, scared: (currentStage===3||hasGun), dead: false };
-        wolves[2] = { x: 9 * TILE_SIZE, y: 12 * TILE_SIZE, dirX: 0, dirY: -1, scared: (currentStage===3||hasGun), dead: false };
+        wolves = [
+            { x: 5 * TILE_SIZE, y: 3 * TILE_SIZE, dirX: 1, dirY: 0, scared: (currentStage===3||hasGun), dead: false },
+            { x: 14 * TILE_SIZE, y: 3 * TILE_SIZE, dirX: -1, dirY: 0, scared: (currentStage===3||hasGun), dead: false },
+            { x: 9 * TILE_SIZE, y: 8 * TILE_SIZE, dirX: 0, dirY: -1, scared: (currentStage===3||hasGun), dead: false }
+        ];
     }
 
     function draw() {
@@ -298,12 +287,10 @@ game_js = """
                     } else if (forestMap[r][c] === 4) {
                         ctx.fillStyle = '#2563eb'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE); 
                     } else if (forestMap[r][c] === 5) {
-                        ctx.font = '14px Arial'; ctx.fillText('🏡', x+3, y+16); 
+                        ctx.font = '15px Arial'; ctx.fillText('🏡', x+3, y+16); // 1칸짜리 명품 오두막집
                     } else if (forestMap[r][c] === 3 && grid[r][c] === 3) {
                         ctx.font = '14px Arial'; ctx.fillText('⭐', x+3, y+17);
                     }
-                    
-                    // 길 위의 버섯만 렌더링
                     if (grid[r][c] === 2) {
                         ctx.font = '12px Arial'; ctx.fillText('🍄', x+4, y+16);
                     }
@@ -377,9 +364,9 @@ game_js = """
         initForestGrid(); resetPositions(); canvas.focus();
     });
 
-    initForestGrid();
+    initForestGrid(); resetPositions();
     setTimeout(() => { canvas.focus(); }, 300);
-    resetPositions(); loop();
+    loop();
 </script>
 """
 
