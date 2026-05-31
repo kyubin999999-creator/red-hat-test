@@ -12,7 +12,7 @@ st.markdown("""
 3. **3단계 최종전:** 지상으로 돌아와 총의 강력한 위력으로 남은 늑대들을 **완전히 소탕**한 뒤, 최상단의 **할머니 집🏡**으로 들어가면 대망의 트루 엔딩!
 """)
 
-# --- 최종 밸런싱 및 그래픽 동기화 HTML5 게임 컴포넌트 ---
+# --- 최종 스크린샷 기반 100% 동기화 HTML5 게임 컴포넌트 ---
 game_js = """
 <div style="text-align: center; font-family: 'Malgun Gothic', sans-serif; color: white;">
     <div style="display: flex; justify-content: space-between; align-items: center; max-width: 440px; margin: 0 auto 12px auto;">
@@ -34,10 +34,10 @@ game_js = """
 
     const TILE_SIZE = 22; const COLS = 20; const ROWS = 20;
 
-    // 💡 최종 스크린샷의 완벽한 맵 레이아웃을 그대로 100% 매핑한 마스터 데이터
-    // 1: 나무벽, 0: 통로, 3: 황금별(⭐), 4: 물웅덩이(파란 블록), 5: 할머니집(🏡 - 정중앙 1칸 통합)
+    // 💡 최종 스크린샷의 완벽한 미로 형태를 100% 재현한 디지털 맵
+    // 1: 나무벽, 0: 통로, 3: 황금별(⭐), 4: 물웅덩이(파란 블록), 5: 할머니집(🏡)
     const forestMap = [
-        [1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1], // 할머니 집 정중앙 1칸 조율
+        [1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1], // 상단 중앙 🏡 위치 교정
         [1,3,0,0,1,4,4,4,0,0,0,0,4,4,4,1,0,0,3,1],
         [1,0,1,0,1,1,1,1,0,1,1,0,1,1,1,1,0,1,0,1],
         [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
@@ -99,7 +99,7 @@ game_js = """
         grid = JSON.parse(JSON.stringify(forestMap));
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
-                if (grid[r][c] === 0) grid[r][c] = 2; // 순수 빈 길 위에만 버섯 생성
+                if (grid[r][c] === 0) grid[r][c] = 2; // 오직 순수 잔디 위에만 버섯 생성
             }
         }
     }
@@ -122,7 +122,7 @@ game_js = """
         if(left < 0 || right >= COLS || top < 0 || bottom >= ROWS) return true;
 
         if (grid[top][left] === 5 || grid[top][right] === 5 || grid[bottom][left] === 5 || grid[bottom][right] === 5) {
-            if (currentStage === 3 && wolves.every(w => w.dead)) return false; // 늑대 소탕 완료시에만 오픈
+            if (currentStage === 3 && wolves.every(w => w.dead)) return false; 
             return true;
         }
 
@@ -238,7 +238,7 @@ game_js = """
                     
                     if (currentStage === 1) {
                         forestKills++; killUI.innerHTML = `🐺 숲 늑대 사냥: ${forestKills}/3`;
-                        w.dead = false; w.x = 9*TILE_SIZE; w.y = 8*TILE_SIZE; // 안전 부활 기지 격리
+                        w.dead = false; w.x = 9*TILE_SIZE; w.y = 8*TILE_SIZE; // 리스폰 안전 구역 격리
                         if (forestKills === 3) {
                             gearSpawned = true;
                             itemUI.innerHTML = "🎒 장비: 🤿 수영장비 출현!"; itemUI.style.background = "#f59e0b";
@@ -253,7 +253,7 @@ game_js = """
                     } else if (currentStage === 3) {
                         let remaining = wolves.filter(wolf => !wolf.dead).length;
                         if (remaining === 0) {
-                            killUI.innerHTML = "🏡 집 오픈! 할머니 오두막으로 안전하게 대피하세요!"; killUI.style.background = "#16a34a";
+                            killUI.innerHTML = "🏡 집 오픈! 할머니 집으로 들어가서 승리하세요!"; killUI.style.background = "#16a34a";
                         } else {
                             killUI.innerHTML = `🐺 남은 늑대 수: ${remaining}마리`;
                         }
@@ -265,7 +265,7 @@ game_js = """
         });
     }
 
-    // 💡 최종 밸런싱이 맞춰진 완벽한 스폰 센터 위치 지정
+    // 💡 늑대 스폰 위치 밸런싱 세팅 (미로 중앙부 배치)
     function resetPositions() {
         redHat.x = 9 * TILE_SIZE; redHat.y = 18 * TILE_SIZE; redHat.dirX = 0; redHat.dirY = 0; redHat.nextDirX = 0; redHat.nextDirY = 0;
         wolves = [
@@ -287,7 +287,7 @@ game_js = """
                     } else if (forestMap[r][c] === 4) {
                         ctx.fillStyle = '#2563eb'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE); 
                     } else if (forestMap[r][c] === 5) {
-                        ctx.font = '15px Arial'; ctx.fillText('🏡', x+3, y+16); // 1칸짜리 명품 오두막집
+                        ctx.font = '15px Arial'; ctx.fillText('🏡', x+3, y+16); 
                     } else if (forestMap[r][c] === 3 && grid[r][c] === 3) {
                         ctx.font = '14px Arial'; ctx.fillText('⭐', x+3, y+17);
                     }
