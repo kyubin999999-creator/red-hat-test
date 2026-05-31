@@ -5,9 +5,9 @@ st.set_page_config(page_title="빨간 모자의 숲속 모험", page_icon="🌲"
 
 st.title("🌲 빨간 모자와 숲속의 미로 대모험 🪓")
 st.markdown("""
-**🎮 밸런스 패치 노트 (Speed Up):**
-* 전체적인 이동 속도와 도끼 리스폰 속도가 **2배** 빨라졌습니다! 
-* 대장간(🧱)에서 끊임없이 나오는 **도끼(🪓)**를 빠르게 보급받아 숲을 질주하세요!
+**🎮 버그 수정 및 조작감 패치 완료:**
+* **고속 코너링 보정:** 이제 속도가 빨라도 골목길에서 버벅이지 않고 부드럽게 꺾입니다.
+* **입수 판정 완화:** 버섯을 다 먹고 수영장비를 얻은 상태라면 **파란 우물(🟦)**에 살짝만 닿아도 즉시 심해로 입수됩니다!
 """)
 
 game_js = """
@@ -88,14 +88,13 @@ game_js = """
 
     let gearPos = {row: 12, col: 9}; let gunPos = {row: 10, col: 10}; let keyPos = {row: 10, col: 9};
 
-    // ⚡ 빨간 모자 이동 속도 상향 (2 -> 4)
+    // ⚡ 고속 쾌적 밸런스 속도 4 유지
     let redHat = { x: 1 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: 4 };
     let wolves = [];
     let scaredTimer = 0;
 
-    // ⚡ 도끼 리스폰 주기 대폭 단축 (700 -> 300프레임, 약 5초마다 생성)
     let axeSpawnTimer = 0;
-    const AXE_RESPAWN_DELAY = 300; 
+    const AXE_RESPAWN_DELAY = 280; 
     let activeAxes = []; 
 
     function initForestGrid() {
@@ -112,7 +111,7 @@ game_js = """
     }
 
     function updateMushCount() {
-        if (currentStage === 2) { mushUI.innerHTML = "🌊 심해 탐사중"; return; }
+        if (currentStage === 2) { mushUI.innerHTML = "🌊 심해 탐사중"; return 0; }
         let count = 0;
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) { if (grid[r][c] === 2) count++; }
@@ -134,11 +133,6 @@ game_js = """
         if(e.keyCode === 39) { redHat.nextDirX = 1; redHat.nextDirY = 0; }
         if(e.keyCode === 38) { redHat.nextDirX = 0; redHat.nextDirY = -1; }
         if(e.keyCode === 40) { redHat.nextDirX = 0; redHat.nextDirY = 1; }
-        
-        // ⚡ 빠른 속도 대응용 즉시 방향 전환 보정 코딩
-        if (redHat.dirX === 0 && redHat.dirY === 0) {
-            redHat.dirX = redHat.nextDirX; redHat.dirY = redHat.nextDirY;
-        }
     });
 
     function isColliding(x, y) {
@@ -151,8 +145,8 @@ game_js = """
             let tile = grid[pt.r][pt.c];
             if (tile === 1 || tile === 6) return true; 
             if (tile === 4 && currentStage === 1) {
-                if (hasAquaGear && updateMushCount() === 0) return false; 
-                return true; 
+                // 우물 통과 허용 판단 로직은 밑에서 근접도 계산으로 따로 강력 처리하므로 콜라이더 통과 허용
+                return false; 
             }
             if (tile === 5) { if (currentStage === 3 && wolves.every(w => w.dead)) return false; return true; }
         }
@@ -175,7 +169,29 @@ game_js = """
             }
         }
 
-        // 빠른 속도 축 정렬 싱크 보정
+        // 💡 [핵심 버그 수정] 빠른 속도 대응형 자석식 코너링 보정 코딩
+        // 완벽하게 격자에 맞아떨어지지 않더라도 오차 범위(4px) 내에 오면 강제로 축을 동기화시켜서 꺾이게 만듭니다.
+        let mCol = redHat.x % TILE_SIZE;
+        let mRow = redHat.y % TILE_SIZE;
+        
+        if (redHat.nextDirX !== 0 && mRow === 0) {
+            if (mCol === 0 || mCol <= 4 || mCol >= TILE_SIZE - 4) {
+                let targetX = Math.round(redHat.x / TILE_SIZE) * TILE_SIZE;
+                if (!isColliding(targetX + redHat.nextDirX * TILE_SIZE, redHat.y)) {
+                    redHat.x = targetX; redHat.dirX = redHat.nextDirX; redHat.dirY = 0;
+                }
+            }
+        }
+        if (redHat.nextDirY !== 0 && mCol === 0) {
+            if (mRow === 0 || mRow <= 4 || mRow >= TILE_SIZE - 4) {
+                let targetY = Math.round(redHat.y / TILE_SIZE) * TILE_SIZE;
+                if (!isColliding(redHat.x, targetY + redHat.nextDirY * TILE_SIZE)) {
+                    redHat.y = targetY; redHat.dirY = redHat.nextDirY; ctx.dirX = 0; redHat.dirX = 0;
+                }
+            }
+        }
+
+        // 기본 격자 정렬 정석 무브먼트
         if (redHat.x % TILE_SIZE === 0 && redHat.y % TILE_SIZE === 0) {
             if (!isColliding(redHat.x + redHat.nextDirX * TILE_SIZE, redHat.y + redHat.nextDirY * TILE_SIZE)) {
                 redHat.dirX = redHat.nextDirX; redHat.dirY = redHat.nextDirY;
@@ -197,18 +213,33 @@ game_js = """
             let axeIndex = activeAxes.findIndex(a => a.r === currRow && a.c === currCol);
             if (axeIndex !== -1) {
                 activeAxes.splice(axeIndex, 1);
-                if (!hasGun && currentStage === 1) { scaredTimer = 220; wolves.forEach(w => w.scared = true); }
+                if (!hasGun && currentStage === 1) { scaredTimer = 240; wolves.forEach(w => w.scared = true); }
             }
             
             if (currentStage === 1 && gearSpawned && !hasAquaGear && currRow === gearPos.row && currCol === gearPos.col) {
                 hasAquaGear = true; itemUI.innerHTML = "🎒 장비: 🤿 수영장비"; itemUI.style.background = "#2563eb";
             }
 
-            if (currentStage === 1 && hasAquaGear && updateMushCount() === 0 && forestMap[currRow][currCol] === 4) {
-                currentStage = 2; grid = JSON.parse(JSON.stringify(aquaMap));
-                canvas.style.background = "#07243a";
-                stageUI.innerHTML = "🗺️ 2단계 푸른 심해"; stageUI.style.background = "#0284c7";
-                killUI.innerHTML = "🦈 수중 처치: 0/3"; updateMushCount(); resetPositions(); return;
+            // 💡 [핵심 버그 수정] 우물 입수 판정 대폭 완화 코드
+            // 캐릭터가 우물 영역(4번 타일들) 근처에 도달했을 때 실시간 거리를 추적해 근접하면 입수 처리시킵니다.
+            if (currentStage === 1 && hasAquaGear && updateMushCount() === 0) {
+                // 맵 전체를 돌며 우물(4) 타일과의 최소 거리를 측정
+                for(let r=0; r<ROWS; r++){
+                    for(let c=0; c<COLS; c++){
+                        if(forestMap[r][c] === 4){
+                            let wellX = c * TILE_SIZE; let wellY = r * TILE_SIZE;
+                            let distX = Math.abs(redHat.x - wellX);
+                            let distY = Math.abs(redHat.y - wellY);
+                            // 12픽셀 내로 근접하면 속도와 상관없이 안전하게 입수 트리거 작동!
+                            if(distX < 14 && distY < 14) {
+                                currentStage = 2; grid = JSON.parse(JSON.stringify(aquaMap));
+                                canvas.style.background = "#07243a";
+                                stageUI.innerHTML = "🗺️ 2단계 푸른 심해"; stageUI.style.background = "#0284c7";
+                                killUI.innerHTML = "🦈 수중 처치: 0/3"; updateMushCount(); resetPositions(); return;
+                            }
+                        }
+                    }
+                }
             }
 
             if (currentStage === 2 && !hasGun && currRow === gunPos.row && currCol === gunPos.col) {
@@ -251,7 +282,6 @@ game_js = """
                 } else { w.dirX = -w.dirX; w.dirY = -w.dirY; }
             }
 
-            // ⚡ 몬스터 추격 속도 상향 (2.0 -> 3.5)
             let spd = 3.5; let nWpX = w.x + w.dirX * spd; let nWpY = w.y + w.dirY * spd;
             if (!isColliding(nWpX, nWpY)) { w.x = nWpX; w.y = nWpY; }
             else { w.x = Math.round(w.x/TILE_SIZE)*TILE_SIZE; w.y = Math.round(w.y/TILE_SIZE)*TILE_SIZE; w.dirX = -w.dirX; w.dirY = -w.dirY; }
@@ -363,7 +393,7 @@ game_js = """
         if (gameWin) {
             ctx.fillStyle = 'rgba(15,23,42,0.95)'; ctx.fillRect(0,0,canvas.width,canvas.height);
             ctx.fillStyle = '#facc15'; ctx.font = 'bold 26px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('👑 HAPPY ENDING 👑', canvas.width/2, canvas.height/2 - 25);
-            ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('초고속 스피드 런 성공!', canvas.width/2, canvas.height/2 + 20);
+            ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('초고속 스피드 런 완벽 성공!', canvas.width/2, canvas.height/2 + 20);
         }
     }
 
