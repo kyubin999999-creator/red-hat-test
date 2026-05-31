@@ -5,9 +5,9 @@ st.set_page_config(page_title="빨간 모자의 숲속 모험", page_icon="🌲"
 
 st.title("🌲 빨간 모자와 숲속의 미로 대모험 🪓")
 st.markdown("""
-**🎮 업데이트된 핵심 규칙:**
-1. **버섯(🍄)을 전부 다 먹어야** 파란색 우물이 활성화되어 심해로 갈 수 있습니다!
-2. 좌상단/우상단의 **대장간(🧱)**에서 **도끼(🪓)가 일정 주기마다 계속 리스폰**됩니다! 위치를 명확히 확인하세요.
+**🎮 밸런스 패치 노트 (Speed Up):**
+* 전체적인 이동 속도와 도끼 리스폰 속도가 **2배** 빨라졌습니다! 
+* 대장간(🧱)에서 끊임없이 나오는 **도끼(🪓)**를 빠르게 보급받아 숲을 질주하세요!
 """)
 
 game_js = """
@@ -33,10 +33,9 @@ game_js = """
 
     const TILE_SIZE = 22; const COLS = 20; const ROWS = 20;
 
-    // 1: 벽, 0: 길, 4: 우물, 5: 할머니집, 8: 대장간(도끼 나오는 곳)
     const forestMap = [
         [1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1],
-        [1,8,0,0,1,4,4,4,0,0,0,0,4,4,4,1,0,0,8,1], // 양쪽 구석 8번이 대장간
+        [1,8,0,0,1,4,4,4,0,0,0,0,4,4,4,1,0,0,8,1], 
         [1,0,1,0,1,1,1,1,0,1,1,0,1,1,1,1,0,1,0,1],
         [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
         [1,0,1,1,1,1,4,4,4,1,1,4,4,4,1,1,1,1,0,1],
@@ -89,45 +88,39 @@ game_js = """
 
     let gearPos = {row: 12, col: 9}; let gunPos = {row: 10, col: 10}; let keyPos = {row: 10, col: 9};
 
-    let redHat = { x: 1 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: 2 };
+    // ⚡ 빨간 모자 이동 속도 상향 (2 -> 4)
+    let redHat = { x: 1 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: 4 };
     let wolves = [];
     let scaredTimer = 0;
 
-    // 🪓 도끼 대장간 리스폰 시스템 변수
+    // ⚡ 도끼 리스폰 주기 대폭 단축 (700 -> 300프레임, 약 5초마다 생성)
     let axeSpawnTimer = 0;
-    const AXE_RESPAWN_DELAY = 700; // 약 11~12초 주기
-    let activeAxes = []; // 현재 맵에 존재하는 도끼 위치 목록
+    const AXE_RESPAWN_DELAY = 300; 
+    let activeAxes = []; 
 
     function initForestGrid() {
         grid = JSON.parse(JSON.stringify(forestMap));
         activeAxes = [];
-        // 초기에 대장간 두 곳에 도끼 스폰
         activeAxes.push({r: 1, c: 1}, {r: 1, c: 18});
         
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
-                if (grid[r][c] === 0) grid[r][c] = 2; // 길 위에 버섯 배치
+                if (grid[r][c] === 0) grid[r][c] = 2; 
             }
         }
         updateMushCount();
     }
 
     function updateMushCount() {
-        if (currentStage === 2) {
-            mushUI.innerHTML = "🌊 심해 탐사중"; return;
-        }
+        if (currentStage === 2) { mushUI.innerHTML = "🌊 심해 탐사중"; return; }
         let count = 0;
         for (let r = 0; r < ROWS; r++) {
-            for (let c = 0; c < COLS; c++) {
-                if (grid[r][c] === 2) count++;
-            }
+            for (let c = 0; c < COLS; c++) { if (grid[r][c] === 2) count++; }
         }
         if (count === 0) {
-            mushUI.innerHTML = "🍄 버섯 완판! (우물 개방가능)";
-            mushUI.style.background = "#2563eb";
+            mushUI.innerHTML = "🍄 버섯 완판! 우물 개방"; mushUI.style.background = "#2563eb";
         } else {
-            mushUI.innerHTML = `🍄 남은 버섯: ${count}개`;
-            mushUI.style.background = "#065f46";
+            mushUI.innerHTML = `🍄 남은 버섯: ${count}개`; mushUI.style.background = "#065f46";
         }
         return count;
     }
@@ -141,6 +134,11 @@ game_js = """
         if(e.keyCode === 39) { redHat.nextDirX = 1; redHat.nextDirY = 0; }
         if(e.keyCode === 38) { redHat.nextDirX = 0; redHat.nextDirY = -1; }
         if(e.keyCode === 40) { redHat.nextDirX = 0; redHat.nextDirY = 1; }
+        
+        // ⚡ 빠른 속도 대응용 즉시 방향 전환 보정 코딩
+        if (redHat.dirX === 0 && redHat.dirY === 0) {
+            redHat.dirX = redHat.nextDirX; redHat.dirY = redHat.nextDirY;
+        }
     });
 
     function isColliding(x, y) {
@@ -152,8 +150,6 @@ game_js = """
         for (let pt of checkPoints) {
             let tile = grid[pt.r][pt.c];
             if (tile === 1 || tile === 6) return true; 
-            
-            // 💡 심해 진입 조건 체크 (장비 보유 && 버섯을 모두 다 먹었을 때만 우물 통과 허용!)
             if (tile === 4 && currentStage === 1) {
                 if (hasAquaGear && updateMushCount() === 0) return false; 
                 return true; 
@@ -166,23 +162,20 @@ game_js = """
     function update() {
         if (gameOver || gameWin) return;
 
-        // 무적 타이머 계산
         if (scaredTimer > 0 && !hasGun && currentStage !== 3) {
             scaredTimer--; if (scaredTimer === 0) wolves.forEach(w => w.scared = false);
         }
 
-        // 🪓 대장간 도끼 일정한 속도로 리스폰 코딩
         if (currentStage === 1) {
             axeSpawnTimer++;
             if (axeSpawnTimer >= AXE_RESPAWN_DELAY) {
                 axeSpawnTimer = 0;
-                // 왼쪽 대장간 확인 후 스폰
                 if (!activeAxes.some(a => a.r === 1 && a.c === 1)) activeAxes.push({r: 1, c: 1});
-                // 오른쪽 대장간 확인 후 스폰
                 if (!activeAxes.some(a => a.r === 1 && a.c === 18)) activeAxes.push({r: 1, c: 18});
             }
         }
 
+        // 빠른 속도 축 정렬 싱크 보정
         if (redHat.x % TILE_SIZE === 0 && redHat.y % TILE_SIZE === 0) {
             if (!isColliding(redHat.x + redHat.nextDirX * TILE_SIZE, redHat.y + redHat.nextDirY * TILE_SIZE)) {
                 redHat.dirX = redHat.nextDirX; redHat.dirY = redHat.nextDirY;
@@ -197,23 +190,20 @@ game_js = """
         let currRow = Math.floor((redHat.y + TILE_SIZE/2) / TILE_SIZE);
 
         if (currCol >= 0 && currCol < COLS && currRow >= 0 && currRow < ROWS) {
-            // 버섯 섭취 및 UI 개수 실시간 갱신
             if (grid[currRow][currCol] === 2 || grid[currRow][currCol] === 7) {
                 grid[currRow][currCol] = 0; updateMushCount();
             }
             
-            // 🪓 대장간에서 생성된 도끼 획득 판단
             let axeIndex = activeAxes.findIndex(a => a.r === currRow && a.c === currCol);
             if (axeIndex !== -1) {
-                activeAxes.splice(axeIndex, 1); // 도끼 획득처리
-                if (!hasGun && currentStage === 1) { scaredTimer = 260; wolves.forEach(w => w.scared = true); }
+                activeAxes.splice(axeIndex, 1);
+                if (!hasGun && currentStage === 1) { scaredTimer = 220; wolves.forEach(w => w.scared = true); }
             }
             
             if (currentStage === 1 && gearSpawned && !hasAquaGear && currRow === gearPos.row && currCol === gearPos.col) {
                 hasAquaGear = true; itemUI.innerHTML = "🎒 장비: 🤿 수영장비"; itemUI.style.background = "#2563eb";
             }
 
-            // 🌊 우물 타일 충돌 후 2단계 맵 전환
             if (currentStage === 1 && hasAquaGear && updateMushCount() === 0 && forestMap[currRow][currCol] === 4) {
                 currentStage = 2; grid = JSON.parse(JSON.stringify(aquaMap));
                 canvas.style.background = "#07243a";
@@ -257,15 +247,16 @@ game_js = """
                         else { if (dist < minTargetDist) { minTargetDist = dist; bestDir = d; } }
                     });
                     w.dirX = bestDir.x; w.dirY = bestDir.y;
-                    if(Math.random() < 0.2) { let chosen = validDirs[Math.floor(Math.random() * validDirs.length)]; w.dirX = chosen.x; w.dirY = chosen.y; }
+                    if(Math.random() < 0.15) { let chosen = validDirs[Math.floor(Math.random() * validDirs.length)]; w.dirX = chosen.x; w.dirY = chosen.y; }
                 } else { w.dirX = -w.dirX; w.dirY = -w.dirY; }
             }
 
-            let spd = 2.0; let nWpX = w.x + w.dirX * spd; let nWpY = w.y + w.dirY * spd;
+            // ⚡ 몬스터 추격 속도 상향 (2.0 -> 3.5)
+            let spd = 3.5; let nWpX = w.x + w.dirX * spd; let nWpY = w.y + w.dirY * spd;
             if (!isColliding(nWpX, nWpY)) { w.x = nWpX; w.y = nWpY; }
             else { w.x = Math.round(w.x/TILE_SIZE)*TILE_SIZE; w.y = Math.round(w.y/TILE_SIZE)*TILE_SIZE; w.dirX = -w.dirX; w.dirY = -w.dirY; }
 
-            if (Math.abs(redHat.x - w.x) < TILE_SIZE * 0.7 && Math.abs(redHat.y - w.y) < TILE_SIZE * 0.7) {
+            if (Math.abs(redHat.x - w.x) < TILE_SIZE * 0.75 && Math.abs(redHat.y - w.y) < TILE_SIZE * 0.75) {
                 if (w.scared || hasGun || currentStage === 3) {
                     w.dead = true; w.x = -999; w.y = -999; 
                     if (currentStage === 1) {
@@ -297,7 +288,6 @@ game_js = """
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
         ctx.shadowBlur = 6; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 3;
 
         for (let r = 0; r < ROWS; r++) {
@@ -311,12 +301,10 @@ game_js = """
                         ctx.fillStyle = wallGrad; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
                         ctx.fillStyle = '#10b981'; ctx.fillRect(x, y, TILE_SIZE, 2); 
                     } else if (forestMap[r][c] === 8) {
-                        // 🧱 대장간 코딩 렌더링 (어두운 회색 벽돌 느낌)
                         ctx.shadowColor = 'rgba(0,0,0,0.4)';
                         ctx.fillStyle = '#475569'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-                        ctx.fillStyle = '#94a3b8'; ctx.fillRect(x+1, y+1, TILE_SIZE-2, 2); // 하이라이트
+                        ctx.fillStyle = '#94a3b8'; ctx.fillRect(x+1, y+1, TILE_SIZE-2, 2); 
                     } else if (forestMap[r][c] === 4) {
-                        // 🟦 우물 입체 렌더링
                         ctx.shadowColor = 'rgba(0,0,0,0.3)';
                         ctx.fillStyle = '#1d4ed8'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
                         ctx.fillStyle = '#3b82f6'; ctx.fillRect(x+2, y+2, TILE_SIZE-4, TILE_SIZE-4);
@@ -327,12 +315,9 @@ game_js = """
                     if (grid[r][c] === 2) {
                         ctx.shadowColor = 'transparent'; ctx.font = '12px Arial'; ctx.fillText('🍄', x+4, y+16);
                     }
-                    
-                    // 대장간 위에 리스폰된 활성화 도끼 그리기
                     if (activeAxes.some(a => a.r === r && a.c === c)) {
                         ctx.shadowColor = 'transparent'; ctx.font = '15px Arial'; ctx.fillText('🪓', x+2, y+17);
                     }
-
                 } else if (currentStage === 2) {
                     if (grid[r][c] === 6) {
                         ctx.shadowColor = 'rgba(0,0,0,0.6)';
@@ -350,7 +335,6 @@ game_js = """
         if (currentStage === 2 && !hasGun) { ctx.font = '16px Arial'; ctx.fillText('🔫', gunPos.col*TILE_SIZE+3, gunPos.row*TILE_SIZE+18); }
         if (currentStage === 2 && keySpawned && !hasKey) { ctx.font = '16px Arial'; ctx.fillText('🔑', keyPos.col*TILE_SIZE+3, keyPos.row*TILE_SIZE+18); }
 
-        // 캐릭터 렌더링
         ctx.shadowBlur = 4; ctx.shadowColor = 'rgba(0,0,0,0.4)';
         let px = redHat.x + TILE_SIZE/2; let py = redHat.y + TILE_SIZE/2;
         ctx.save();
@@ -379,7 +363,7 @@ game_js = """
         if (gameWin) {
             ctx.fillStyle = 'rgba(15,23,42,0.95)'; ctx.fillRect(0,0,canvas.width,canvas.height);
             ctx.fillStyle = '#facc15'; ctx.font = 'bold 26px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('👑 HAPPY ENDING 👑', canvas.width/2, canvas.height/2 - 25);
-            ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('미션을 완수하고 안전하게 복귀했습니다!', canvas.width/2, canvas.height/2 + 20);
+            ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('초고속 스피드 런 성공!', canvas.width/2, canvas.height/2 + 20);
         }
     }
 
