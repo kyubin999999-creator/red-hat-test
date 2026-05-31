@@ -2,51 +2,53 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # --- 페이지 설정 ---
-st.set_page_config(page_title="동화 속으로: 빨간 모자의 여정", page_icon="🍄", layout="centered")
+st.set_page_config(page_title="빨간 모자의 역습", page_icon="🔫", layout="centered")
 
-st.title("🌲 잔혹동화: 빨간 모자와 숲속의 늑대들 🐺")
-st.markdown("무시무시한 늑대들을 피해 숲속의 **버섯**을 모두 따고, 미로 위쪽에 있는 **할머니의 안전한 오두막집🏡**으로 탈출하세요!")
+st.title("🌲 빨간 모자의 역습: 사냥꾼의 총과 늑대 소탕 작전 🔫")
+st.markdown("""
+**최종 복수극 시나리오:**
+1. **숲속 (Stage 1):** 별(⭐)을 먹고 늑대를 **3마리** 잡아 **수영 장비(🤿)**를 얻은 후 물웅덩이로 돌진하세요!
+2. **물속 (Stage 2):** 숨겨진 **사냥꾼의 총(🔫)**을 찾으세요. 총을 얻으면 상시 무적이 됩니다! 물속 괴물을 **3마리** 잡고 **열쇠(🔑)**를 얻어 지상으로 복귀하세요!
+3. **최종전 (Stage 3):** 지상으로 돌아와 총의 힘으로 늑대들을 **완전히 소탕**하고 할머니 집🏡으로 당당하게 걸어가세요!
+""")
 
-# --- 자바스크립트 기반 게임 코드 ---
+# --- 자바스크립트 기반 3단계 완전체 게임 코드 ---
 pacman_js = """
 <div style="text-align: center; font-family: 'Malgun Gothic', sans-serif; color: white;">
     <div style="display: flex; justify-content: space-between; align-items: center; max-width: 440px; margin: 0 auto 12px auto;">
-        <div style="display: flex; gap: 8px;">
-            <div id="p-score" style="padding: 8px 12px; background: #fef2f2; color: #991b1b; border-radius: 6px; font-weight: bold; font-size: 14px; border: 1px solid #fee2e2;">🍄 바구니 속 버섯: 0</div>
-            <div id="p-lives" style="padding: 8px 12px; background: #fffbeb; color: #b45309; border-radius: 6px; font-weight: bold; font-size: 14px; border: 1px solid #fde68a;">❤️ 목숨: ❤️❤️❤️</div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <div id="p-stage" style="padding: 6px 10px; background: #14532d; color: #a7f3d0; border-radius: 6px; font-weight: bold; font-size: 13px;">🗺️ 구역: 1단계 숲속 미로</div>
+            <div id="p-kill" style="padding: 6px 10px; background: #7f1d1d; color: #fca5a5; border-radius: 6px; font-weight: bold; font-size: 13px;">🐺 숲 늑대 사냥: 0/3</div>
+            <div id="p-item" style="padding: 6px 10px; background: #374151; color: #9ca3af; border-radius: 6px; font-weight: bold; font-size: 13px;">🎒 장비: 없음</div>
         </div>
-        <button id="p-reset" style="padding: 8px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px;">🔄 처음부터</button>
+        <button id="p-reset" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px;">🔄 리셋</button>
     </div>
     
     <canvas id="pacmanCanvas" width="440" height="440" style="border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.6); background: #14532d; border: 4px solid #78350f; outline: none;" tabindex="0"></canvas>
-    
-    <div style="font-size: 13px; color: #a8a29e; margin-top: 10px;">
-        🎮 <b>조작법:</b> 키보드 방향키(`←` `→` `↑` `↓`)를 누르면 빨간 모자가 바로 움직입니다!
-    </div>
 </div>
 
 <script>
     const canvas = document.getElementById('pacmanCanvas'); const ctx = canvas.getContext('2d');
-    const scoreUI = document.getElementById('p-score'); const livesUI = document.getElementById('p-lives');
-    const resetBtn = document.getElementById('p-reset');
+    const stageUI = document.getElementById('p-stage'); const killUI = document.getElementById('p-kill');
+    const itemUI = document.getElementById('p-item'); const resetBtn = document.getElementById('p-reset');
 
     const TILE_SIZE = 22; const COLS = 20; const ROWS = 20;
     
-    // ⭐ [완벽 리디자인] 물웅덩이(4)가 통로를 막지 않도록 중앙 방 구역과 구석의 넓은 공간으로 재배치하여 갇힘 현상 100% 해결!
-    const map = [
-        [1,1,1,1,1,1,1,1,1,5,5,1,1,1,1,1,1,1,1,1],
+    // 지형 매핑 정보 (1: 나무벽, 4: 물웅덩이, 6: 심해벽)
+    const forestMap = [
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
         [1,3,2,2,2,2,2,2,2,0,0,2,2,2,2,2,2,2,3,1],
         [1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1],
-        [1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1],
-        [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+        [1,2,1,1,2,2,2,2,2,1,1,2,2,2,2,2,1,1,2,1],
+        [1,2,2,2,2,1,1,1,2,2,2,2,1,1,1,2,2,2,2,1],
         [1,2,1,1,2,1,2,1,1,1,1,1,1,2,1,2,1,1,2,1],
         [1,2,2,2,2,1,2,2,2,1,1,2,2,2,1,2,2,2,2,1],
         [1,1,1,1,2,1,1,1,0,1,1,0,1,1,1,2,1,1,1,1],
-        [0,0,0,1,2,1,4,4,0,0,0,0,4,4,1,2,1,0,0,0], // 중앙 늑대방 근처에 물웅덩이(4) 안전하게 배치
-        [1,1,1,1,2,1,4,1,1,0,0,1,1,4,1,2,1,1,1,1],
-        [0,0,0,0,2,0,0,1,0,0,0,0,1,0,0,2,0,0,0,0],
-        [1,1,1,1,2,1,4,1,1,1,1,1,1,4,1,2,1,1,1,1],
-        [0,0,0,1,2,1,4,4,4,4,4,4,4,4,1,2,1,0,0,0], // 물웅덩이 밀집 구역
+        [0,0,0,1,2,1,0,0,0,0,0,0,0,0,1,2,1,0,0,0],
+        [1,1,1,1,2,1,0,1,1,0,0,1,1,0,1,2,1,1,1,1],
+        [4,4,4,4,2,0,0,1,0,0,0,0,1,0,0,2,4,4,4,4], // 물웅덩이 관문
+        [1,1,1,1,2,1,0,1,1,1,1,1,1,0,1,2,1,1,1,1],
+        [0,0,0,1,2,1,0,0,0,0,0,0,0,0,1,2,1,0,0,0],
         [1,1,1,1,2,1,0,1,1,1,1,1,1,0,1,2,1,1,1,1],
         [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
         [1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1],
@@ -56,30 +58,58 @@ pacman_js = """
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     ];
 
-    let grid = JSON.parse(JSON.stringify(map));
-    let score = 0; let lives = 3; let gameOver = false; let gameWin = false;
-    let totalMushrooms = 0;
+    const aquaMap = [
+        [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6],
+        [6,7,7,7,7,7,7,7,7,0,0,7,7,7,7,7,7,7,7,6],
+        [6,7,6,6,7,6,6,6,7,6,6,7,6,6,6,7,6,6,7,6],
+        [6,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,6],
+        [6,7,6,6,7,6,7,6,6,6,6,6,6,7,6,7,6,6,7,6],
+        [6,7,7,7,7,6,7,7,7,6,6,7,7,7,6,7,7,7,7,6],
+        [6,6,6,6,7,6,6,6,0,6,6,0,6,6,6,7,6,6,6,6],
+        [0,0,0,6,7,6,0,0,0,0,0,0,0,0,6,7,6,0,0,0],
+        [6,6,6,6,7,6,0,6,6,0,0,6,6,0,6,7,6,6,6,6],
+        [0,0,0,0,7,0,0,6,0,0,0,0,6,0,0,7,0,0,0,0], // 🔫 사냥꾼의 총이 출현할 중앙 방
+        [6,6,6,6,7,6,0,6,6,6,6,6,6,0,6,7,6,6,6,6],
+        [0,0,0,6,7,6,0,0,0,0,0,0,0,0,6,7,6,0,0,0],
+        [6,6,6,6,7,6,0,6,6,6,6,6,6,0,6,7,6,6,6,6],
+        [6,7,7,7,7,7,7,7,7,6,6,7,7,7,7,7,7,7,7,6],
+        [6,7,6,6,7,6,6,6,7,6,6,7,6,6,6,7,6,6,7,6],
+        [6,7,7,6,7,7,7,7,7,0,0,7,7,7,7,7,6,7,7,6],
+        [6,6,7,6,7,6,7,6,6,6,6,6,6,7,6,7,6,7,6,6],
+        [6,7,7,7,7,6,7,7,7,6,6,7,7,7,6,7,7,7,7,6],
+        [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6]
+    ];
 
-    for(let r=0; r<ROWS; r++) {
-        for(let c=0; c<COLS; c++) {
-            if(grid[r][c] === 2 || grid[r][c] === 3) totalMushrooms++;
-        }
-    }
+    // 최종 결전 지상전 맵 (할머니 집 오픈!)
+    const finalForestMap = JSON.parse(JSON.stringify(forestMap));
+    finalForestMap[0][9] = 5; finalForestMap[0][10] = 5; // 할머니 집 해제
+
+    let currentStage = 1; // 1: 숲속, 2: 수중, 3: 최종 지상전
+    let grid = JSON.parse(JSON.stringify(forestMap));
+    let gameOver = false; let gameWin = false;
+
+    // 미션 및 아이템 상태 변수
+    let forestKills = 0; let waterKills = 0;
+    let hasAquaGear = false; let gearSpawned = false;
+    let hasGun = false;
+    let hasKey = false; let keySpawned = false;
+
+    // 아이템 생성 좌표들
+    let gearPos = {row: 10, col: 9};
+    let gunPos = {row: 9, col: 10};
+    let keyPos = {row: 9, col: 9};
 
     let redHat = { x: 9 * TILE_SIZE, y: 16 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: 2 };
     let wolves = [
-        { x: 9 * TILE_SIZE, y: 8 * TILE_SIZE, dirX: 1, dirY: 0, scared: false },
-        { x: 10 * TILE_SIZE, y: 8 * TILE_SIZE, dirX: -1, dirY: 0, scared: false },
-        { x: 9 * TILE_SIZE, y: 10 * TILE_SIZE, dirX: 0, dirY: -1, scared: false }
+        { x: 1 * TILE_SIZE, y: 1 * TILE_SIZE, dirX: 1, dirY: 0, scared: false, dead: false },
+        { x: 18 * TILE_SIZE, y: 1 * TILE_SIZE, dirX: -1, dirY: 0, scared: false, dead: false },
+        { x: 9 * TILE_SIZE, y: 14 * TILE_SIZE, dirX: 0, dirY: -1, scared: false, dead: false }
     ];
 
     let scaredTimer = 0;
 
-    window.addEventListener('keydown', function(e) {
-        if([37, 38, 39, 40].indexOf(e.keyCode) > -1) { 
-            e.preventDefault(); 
-            canvas.focus();
-        }
+    window.addEventListener('keydown', e => {
+        if([37, 38, 39, 40].indexOf(e.keyCode) > -1) { e.preventDefault(); canvas.focus(); }
     }, {passive: false});
 
     canvas.addEventListener('keydown', e => {
@@ -90,14 +120,14 @@ pacman_js = """
     });
 
     function isColliding(x, y) {
-        let left = Math.floor(x / TILE_SIZE);
-        let right = Math.floor((x + TILE_SIZE - 1) / TILE_SIZE);
-        let top = Math.floor(y / TILE_SIZE);
-        let bottom = Math.floor((y + TILE_SIZE - 1) / TILE_SIZE);
+        let left = Math.floor(x / TILE_SIZE); let right = Math.floor((x + TILE_SIZE - 1) / TILE_SIZE);
+        let top = Math.floor(y / TILE_SIZE); let bottom = Math.floor((y + TILE_SIZE - 1) / TILE_SIZE);
         
         if(left < 0 || right >= COLS || top < 0 || bottom >= ROWS) return true;
 
-        let blockedTypes = [1, 4];
+        let blockedTypes = (currentStage === 2) ? [6] : [1];
+        if(currentStage === 1 && !hasAquaGear) blockedTypes.push(4); // 수영 장비 없으면 물웅덩이는 벽
+
         if (blockedTypes.includes(grid[top][left]) || blockedTypes.includes(grid[top][right]) || 
             blockedTypes.includes(grid[bottom][left]) || blockedTypes.includes(grid[bottom][right])) {
             return true;
@@ -108,20 +138,19 @@ pacman_js = """
     function update() {
         if (gameOver || gameWin) return;
 
-        if (scaredTimer > 0) {
+        if (scaredTimer > 0 && !hasGun) {
             scaredTimer--;
             if (scaredTimer === 0) wolves.forEach(w => w.scared = false);
         }
 
+        // 유저 이동 캐릭터 물리 계산
         if (redHat.x % TILE_SIZE === 0 && redHat.y % TILE_SIZE === 0) {
             if (!isColliding(redHat.x + redHat.nextDirX * TILE_SIZE, redHat.y + redHat.nextDirY * TILE_SIZE)) {
                 redHat.dirX = redHat.nextDirX; redHat.dirY = redHat.nextDirY;
             }
         }
-
         if (!isColliding(redHat.x + redHat.dirX * redHat.speed, redHat.y + redHat.dirY * redHat.speed)) {
-            redHat.x += redHat.dirX * redHat.speed;
-            redHat.y += redHat.dirY * redHat.speed;
+            redHat.x += redHat.dirX * redHat.speed; redHat.y += redHat.dirY * redHat.speed;
         }
 
         if (redHat.x < -TILE_SIZE/2) redHat.x = COLS * TILE_SIZE - TILE_SIZE/2;
@@ -131,161 +160,220 @@ pacman_js = """
         let currRow = Math.floor((redHat.y + TILE_SIZE/2) / TILE_SIZE);
 
         if (currCol >= 0 && currCol < COLS && currRow >= 0 && currRow < ROWS) {
-            if (grid[currRow][currCol] === 2) {
-                grid[currRow][currCol] = 0; score++; totalMushrooms--;
-            } else if (grid[currRow][currCol] === 3) {
-                grid[currRow][currCol] = 0; score += 10; totalMushrooms--;
-                scaredTimer = 350;
-                wolves.forEach(w => w.scared = true);
+            if (grid[currRow][currCol] === 2 || grid[currRow][currCol] === 7) grid[currRow][currCol] = 0;
+            
+            if (grid[currRow][currCol] === 3) {
+                grid[currRow][currCol] = 0;
+                if (!hasGun) { scaredTimer = 300; wolves.forEach(w => w.scared = true); }
             }
             
-            if (totalMushrooms <= 0 && grid[currRow][currCol] === 5) {
-                gameWin = true;
+            // [아이템 획득 검사 1]: 수영 장비 🤿
+            if (currentStage === 1 && gearSpawned && !hasAquaGear && currRow === gearPos.row && currCol === gearPos.col) {
+                hasAquaGear = true;
+                itemUI.innerHTML = "🎒 장비: 🤿 수영장비";
+                itemUI.style.background = "#2563eb";
             }
-            scoreUI.innerHTML = `🍄 바구니 속 버섯: ${score} ${totalMushrooms > 0 ? `(남은 버섯: ${totalMushrooms})` : '◀ 🏡할머니 집으로 가세요!'}`;
+
+            // [스테이지 전송 1]: 숲 ➡️ 물속 🌊
+            if (currentStage === 1 && hasAquaGear && grid[currRow][currCol] === 4) {
+                currentStage = 2;
+                grid = JSON.parse(JSON.stringify(aquaMap));
+                canvas.style.background = "#1e3a8a"; canvas.style.border = "4px solid #3b82f6";
+                stageUI.innerHTML = "🗺️ 구역: 2단계 푸른 심해 바다"; stageUI.style.background = "#1d4ed8";
+                killUI.innerHTML = "🦈 수중 처치: 0/3"; killUI.style.background = "#7f1d1d";
+                resetPositions(); wolves.forEach(w => { w.dead = false; w.scared = false; });
+                return;
+            }
+
+            // [아이템 획득 검사 2]: 사냥꾼의 총 🔫
+            if (currentStage === 2 && !hasGun && currRow === gunPos.row && currCol === gunPos.col) {
+                hasGun = true;
+                wolves.forEach(w => w.scared = true); // 총을 들면 무조건 적들이 도망침 (상시 무적)
+                itemUI.innerHTML = "🎒 장비: 🤿 + 🔫 사냥꾼의 총!";
+                itemUI.style.background = "#dc2626";
+            }
+
+            // [아이템 획득 검사 3]: 지상 복귀용 비밀 열쇠 🔑
+            if (currentStage === 2 && keySpawned && !hasKey && currRow === keyPos.row && currCol === keyPos.col) {
+                hasKey = true;
+                currentStage = 3; // 3단계 최종 결전 진입!
+                grid = JSON.parse(JSON.stringify(finalForestMap));
+                canvas.style.background = "#14532d"; canvas.style.border = "4px solid #f59e0b";
+                stageUI.innerHTML = "🗺️ 구역: 3단계 최종 복수전 (지상)"; stageUI.style.background = "#b45309";
+                killUI.innerHTML = "🐺 남은 늑대 제거!"; killUI.style.background = "#b91c1c";
+                itemUI.innerHTML = "🎒 장비: 👑 완전 무적 상태";
+                resetPositions(); wolves.forEach(w => { w.dead = false; w.scared = true; }); // 복귀한 늑대들 전부 공포 상태
+                return;
+            }
+
+            // [최종 승리 조건]: 모든 늑대 소탕 후 할머니 집에 안전 도달!
+            if (currentStage === 3 && grid[currRow][currCol] === 5) {
+                let allDead = wolves.every(w => w.dead);
+                if (allDead) gameWin = true;
+            }
         }
 
+        // 적들 (늑대 / 상어) AI 로직 계산
         wolves.forEach(w => {
+            if (w.dead) return;
+
             if (w.x % TILE_SIZE === 0 && w.y % TILE_SIZE === 0) {
-                let validDirs = [];
-                let dirs = [{x:1, y:0}, {x:-1, y:0}, {x:0, y:1}, {x:0, y:-1}];
-                
+                let validDirs = []; let dirs = [{x:1, y:0}, {x:-1, y:0}, {x:0, y:1}, {x:0, y:-1}];
                 dirs.forEach(d => {
-                    let nextX = w.x + d.x * TILE_SIZE;
-                    let nextY = w.y + d.y * TILE_SIZE;
-                    
-                    if (!isColliding(nextX, nextY)) {
-                        let nextCol = Math.floor(nextX / TILE_SIZE);
-                        let nextRow = Math.floor(nextY / TILE_SIZE);
-                        
-                        if (nextRow >= 0 && nextRow < ROWS && nextCol >= 0 && nextCol < COLS && grid[nextRow][nextCol] !== 5) {
-                            if (d.x !== -w.dirX || d.y !== -w.dirY) {
-                                validDirs.push(d);
-                            }
-                        }
+                    if (!isColliding(w.x + d.x * TILE_SIZE, w.y + d.y * TILE_SIZE)) {
+                        let nC = Math.floor((w.x + d.x * TILE_SIZE)/TILE_SIZE);
+                        let nR = Math.floor((w.y + d.y * TILE_SIZE)/TILE_SIZE);
+                        if (grid[nR][nC] !== 5 && (d.x !== -w.dirX || d.y !== -w.dirY)) validDirs.push(d);
                     }
                 });
-
                 if (validDirs.length === 0) {
-                    dirs.forEach(d => {
-                        if (!isColliding(w.x + d.x * TILE_SIZE, w.y + d.y * TILE_SIZE)) {
-                            validDirs.push(d);
-                        }
-                    });
+                    dirs.forEach(d => { if (!isColliding(w.x+d.x*TILE_SIZE, w.y+d.y*TILE_SIZE)) validDirs.push(d); });
                 }
-
                 if (validDirs.length > 0) {
                     let chosen = validDirs[Math.floor(Math.random() * validDirs.length)];
-                    w.dirX = chosen.x; 
-                    w.dirY = chosen.y;
+                    w.dirX = chosen.x; w.dirY = chosen.y;
                 } else {
-                    w.dirX = -w.dirX;
-                    w.dirY = -w.dirY;
+                    w.dirX = -w.dirX; w.dirY = -w.dirY;
                 }
             }
 
-            let nextWpX = w.x + w.dirX * (w.scared ? 1 : 1.5);
-            let nextWpY = w.y + w.dirY * (w.scared ? 1 : 1.5);
-            
-            if (!isColliding(nextWpX, nextWpY)) {
-                w.x = nextWpX;
-                w.y = nextWpY;
-            } else {
-                w.x = Math.round(w.x / TILE_SIZE) * TILE_SIZE;
-                w.y = Math.round(w.y / TILE_SIZE) * TILE_SIZE;
-                w.dirX = -w.dirX; w.dirY = -w.dirY;
-            }
+            let spd = (w.scared || hasGun) ? 1 : 1.5;
+            let nWpX = w.x + w.dirX * spd; let nWpY = w.y + w.dirY * spd;
+            if (!isColliding(nWpX, nWpY)) { w.x = nWpX; w.y = nWpY; }
+            else { w.x = Math.round(w.x/TILE_SIZE)*TILE_SIZE; w.y = Math.round(w.y/TILE_SIZE)*TILE_SIZE; w.dirX = -w.dirX; w.dirY = -w.dirY; }
 
+            // 플레이어와의 충돌 판정 크래시 체크
             if (Math.abs(redHat.x - w.x) < TILE_SIZE * 0.7 && Math.abs(redHat.y - w.y) < TILE_SIZE * 0.7) {
-                if (w.scared) {
-                    w.x = 9 * TILE_SIZE; w.y = 8 * TILE_SIZE; w.scared = false; score += 30;
+                if (w.scared || hasGun || currentStage === 3) {
+                    w.dead = true; // 적 즉시 처치
+                    w.x = -999; w.y = -999; // 화면 밖 격리
+                    
+                    if (currentStage === 1) {
+                        forestKills++;
+                        killUI.innerHTML = `🐺 숲 늑대 사냥: ${forestKills}/3`;
+                        w.dead = false; w.x = 9*TILE_SIZE; w.y = 8*TILE_SIZE; // 스테이지 1에선 무한 부활
+                        if (forestKills === 3) {
+                            gearSpawned = true;
+                            itemUI.innerHTML = "🎒 장비: 🤿 수영장비 출현!"; itemUI.style.background = "#f59e0b";
+                        }
+                    } else if (currentStage === 2) {
+                        waterKills++;
+                        killUI.innerHTML = `🦈 수중 처치: ${waterKills}/3`;
+                        w.dead = false; w.x = 9*TILE_SIZE; w.y = 4*TILE_SIZE; // 스테이지 2 무한 부활
+                        if (waterKills === 3) {
+                            keySpawned = true;
+                            itemUI.innerHTML = "🎒 장비: 🔑 탈출 열쇠 출현!"; itemUI.style.background = "#a855f7";
+                        }
+                    } else if (currentStage === 3) {
+                        // 3단계 최종전: 처치 시 부활 불가, 영구 제거!
+                        let remaining = wolves.filter(wolf => !wolf.dead).length;
+                        if (remaining === 0) {
+                            killUI.innerHTML = "🏡 문이 열렸습니다! 들어가세요!"; killUI.style.background = "#16a34a";
+                        } else {
+                            killUI.innerHTML = `🐺 남은 늑대 수: ${remaining}마리`;
+                        }
+                    }
                 } else {
-                    lives--;
-                    livesUI.innerHTML = `❤️ 목숨: ${'❤️'.repeat(lives)}`;
-                    if (lives <= 0) gameOver = true; else resetPositions();
+                    gameOver = true; // 무적 아닐 때 부딪히면 사망
                 }
             }
         });
-    }
-
-    function resetPositions() {
-        redHat.x = 9 * TILE_SIZE; redHat.y = 16 * TILE_SIZE; redHat.dirX = 0; redHat.dirY = 0; redHat.nextDirX = 0; redHat.nextDirY = 0;
-        wolves[0] = { x: 9 * TILE_SIZE, y: 8 * TILE_SIZE, dirX: 1, dirY: 0, scared: wolves[0].scared };
-        wolves[1] = { x: 10 * TILE_SIZE, y: 8 * TILE_SIZE, dirX: -1, dirY: 0, scared: wolves[1].scared };
-        wolves[2] = { x: 9 * TILE_SIZE, y: 10 * TILE_SIZE, dirX: 0, dirY: -1, scared: wolves[2].scared };
     }
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+        // 배경 그리드 렌더링
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
                 let x = c * TILE_SIZE; let y = r * TILE_SIZE;
-                
-                if (grid[r][c] === 1) { 
-                    ctx.fillStyle = '#064e3b'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-                    ctx.fillStyle = '#047857'; ctx.fillRect(x+4, y+4, TILE_SIZE-8, TILE_SIZE-8);
-                } else if (grid[r][c] === 4) { 
-                    ctx.fillStyle = '#1d4ed8'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-                    ctx.fillStyle = '#3b82f6'; ctx.fillRect(x+2, y+2, TILE_SIZE-4, TILE_SIZE-4);
-                } else if (grid[r][c] === 5) { 
-                    ctx.fillStyle = '#b45309'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-                    ctx.font = '14px Arial'; ctx.fillText('🏡', x + TILE_SIZE/2, y + TILE_SIZE/2 + 2);
-                } else if (grid[r][c] === 2) { 
-                    ctx.font = '13px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                    ctx.fillText('🍄', x + TILE_SIZE/2, y + TILE_SIZE/2);
-                } else if (grid[r][c] === 3) { 
-                    ctx.font = '15px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                    ctx.fillText('⭐', x + TILE_SIZE/2, y + TILE_SIZE/2);
+                if (currentStage === 1 || currentStage === 3) {
+                    if (grid[r][c] === 1) {
+                        ctx.fillStyle = '#064e3b'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    } else if (grid[r][c] === 4) {
+                        ctx.fillStyle = '#1d4ed8'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    } else if (grid[r][c] === 2) {
+                        ctx.font = '12px Arial'; ctx.fillText('🍄', x+4, y+16);
+                    } else if (grid[r][c] === 3) {
+                        ctx.font = '14px Arial'; ctx.fillText('⭐', x+3, y+17);
+                    } else if (grid[r][c] === 5) {
+                        ctx.fillStyle = '#d97706'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                        ctx.font = '14px Arial'; ctx.fillText('🏡', x+3, y+16);
+                    }
+                } else if (currentStage === 2) {
+                    if (grid[r][c] === 6) {
+                        ctx.fillStyle = '#1e3a8a'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    } else if (grid[r][c] === 7) {
+                        ctx.font = '12px Arial'; ctx.fillText('🌿', x+4, y+16);
+                    }
                 }
             }
         }
 
-        // 빨간 망토 소녀 그리기
+        // 아이템 월드 드롭 마커 시각화
+        if (currentStage === 1 && gearSpawned && !hasAquaGear) {
+            ctx.font = '16px Arial'; ctx.fillText('🤿', gearPos.col*TILE_SIZE+3, gearPos.row*TILE_SIZE+18);
+        }
+        if (currentStage === 2 && !hasGun) {
+            ctx.font = '16px Arial'; ctx.fillText('🔫', gunPos.col*TILE_SIZE+3, gunPos.row*TILE_SIZE+18);
+        }
+        if (currentStage === 2 && keySpawned && !hasKey) {
+            ctx.font = '16px Arial'; ctx.fillText('🔑', keyPos.col*TILE_SIZE+3, keyPos.row*TILE_SIZE+18);
+        }
+
+        // 주인공 캐릭터 그래픽스 그리기
         let px = redHat.x + TILE_SIZE/2; let py = redHat.y + TILE_SIZE/2;
         ctx.save();
-        ctx.beginPath(); ctx.arc(px, py - 1, 8, 0, Math.PI * 2); ctx.fillStyle = '#dc2626'; ctx.fill();
-        ctx.beginPath(); ctx.arc(px, py + 2, 5, 0, Math.PI * 2); ctx.fillStyle = '#fed7aa'; ctx.fill();
-        ctx.fillStyle = '#000'; ctx.fillRect(px - 3, py + 1, 1.5, 1.5); ctx.fillRect(px + 1, py + 1, 1.5, 1.5);
-        ctx.beginPath(); ctx.arc(px, py + 5, 2, 0, Math.PI*2); ctx.fillStyle = '#b91c1c'; ctx.fill();
+        ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI*2);
+        // 총을 가졌거나 무적인 상태면 찬란한 황금빛 오라 렌더링
+        ctx.fillStyle = (hasGun || currentStage === 3) ? '#facc15' : ((currentStage === 2) ? '#06b6d4' : '#dc2626');
+        ctx.fill();
+        ctx.beginPath(); ctx.arc(px, py+2, 5, 0, Math.PI*2); ctx.fillStyle = '#fed7aa'; ctx.fill();
+        if(hasAquaGear) { ctx.font = '10px Arial'; ctx.fillText('🤿', px+3, py-3); }
+        if(hasGun) { ctx.font = '10px Arial'; ctx.fillText('🔫', px-9, py+5); }
         ctx.restore();
 
-        // 야수 늑대 그리기
+        // 크리처 에너미 객체 드로잉
         wolves.forEach(w => {
+            if (w.dead) return;
             let wx = w.x + TILE_SIZE/2; let wy = w.y + TILE_SIZE/2;
             ctx.save();
-            if (w.scared) {
-                ctx.font = '17px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText('🥶', wx, wy);
+            if (w.scared || hasGun || currentStage === 3) {
+                ctx.font = '17px Arial'; ctx.fillText('🥶', wx-8, wy+6);
             } else {
-                ctx.beginPath(); ctx.arc(wx, wy, 7, 0, Math.PI*2); ctx.fillStyle = '#4b5563'; ctx.fill();
-                ctx.fillStyle = '#1f2937';
-                ctx.beginPath(); ctx.moveTo(wx - 6, wy - 4); ctx.lineTo(wx - 3, wy - 10); ctx.lineTo(wx, wy - 4); ctx.fill();
-                ctx.beginPath(); ctx.moveTo(wx + 6, wy - 4); ctx.lineTo(wx + 3, wy - 10); ctx.lineTo(wx, wy - 4); ctx.fill();
-                ctx.fillStyle = '#facc15'; ctx.fillRect(wx - 3, wy - 2, 2, 2); ctx.fillRect(wx + 1, wy - 2, 2, 2);
+                if (currentStage === 1) {
+                    ctx.beginPath(); ctx.arc(wx, wy, 7, 0, Math.PI*2); ctx.fillStyle = '#4b5563'; ctx.fill();
+                } else {
+                    ctx.font = '16px Arial'; ctx.fillText('🦈', wx-8, wy+6);
+                }
             }
             ctx.restore();
         });
 
+        // 엔딩 스크린 오버레이 화면 정의
         if (gameOver) {
             ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0,0,canvas.width,canvas.height);
-            ctx.fillStyle = '#ef4444'; ctx.font = 'bold 34px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 15);
-            ctx.fillStyle = '#fff'; ctx.font = '15px sans-serif'; ctx.fillText('늑대에게 잡혀 할머니집에 가지 못했습니다...', canvas.width/2, canvas.height/2 + 25);
+            ctx.fillStyle = '#ef4444'; ctx.font = 'bold 30px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2);
         }
         if (gameWin) {
-            ctx.fillStyle = 'rgba(15,23,42,0.9)'; ctx.fillRect(0,0,canvas.width,canvas.height);
-            ctx.fillStyle = '#34d399'; ctx.font = 'bold 32px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🎉 HAPPY ENDING 🎉', canvas.width/2, canvas.height/2 - 20);
-            ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.fillText('해냈습니다! 버섯을 전부 가득 채운 채', canvas.width/2, canvas.height/2 + 20);
-            ctx.fillStyle = '#fef08a'; ctx.font = '15px sans-serif'; ctx.fillText('안전한 할머니 오두막집🏡에 무사히 도착했습니다!', canvas.width/2, canvas.height/2 + 45);
+            ctx.fillStyle = 'rgba(15,23,42,0.95)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.fillStyle = '#facc15'; ctx.font = 'bold 28px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('👑 TRUE HAPPY ENDING 👑', canvas.width/2, canvas.height/2 - 25);
+            ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('사냥꾼의 총으로 물속 괴물과 숲속의 늑대들을', canvas.width/2, canvas.height/2 + 15);
+            ctx.fillStyle = '#34d399'; ctx.font = 'bold 15px sans-serif'; ctx.fillText('완벽하게 처단하고 무사히 탈출했습니다! 사냥 성공!', canvas.width/2, canvas.height/2 + 40);
         }
     }
 
     function loop() { update(); draw(); requestAnimationFrame(loop); }
 
     resetBtn.addEventListener('click', () => {
-        grid = JSON.parse(JSON.stringify(map)); score = 0; lives = 3; gameOver = false; gameWin = false; scaredTimer = 0;
-        totalMushrooms = 0; for(let r=0; r<ROWS; r++) for(let c=0; c<COLS; c++) if(grid[r][c]===2 || grid[r][c]===3) totalMushrooms++;
-        scoreUI.innerHTML = `🍄 바구니 속 버섯: 0 (남은 버섯: ${totalMushrooms})`; livesUI.innerHTML = "❤️ 목숨: ❤️❤️❤️"; resetPositions(); canvas.focus();
+        currentStage = 1; grid = JSON.parse(JSON.stringify(forestMap));
+        gameOver = false; gameWin = false; forestKills = 0; waterKills = 0;
+        hasAquaGear = false; gearSpawned = false; hasGun = false; hasKey = false; keySpawned = false; scaredTimer = 0;
+        canvas.style.background = "#14532d"; canvas.style.border = "4px solid #78350f";
+        stageUI.innerHTML = "🗺️ 구역: 1단계 숲속 미로"; stageUI.style.background = "#14532d";
+        killUI.innerHTML = "🐺 숲 늑대 사냥: 0/3"; killUI.style.background = "#7f1d1d";
+        itemUI.innerHTML = "🎒 장비: 없음"; itemUI.style.background = "#374151";
+        resetPositions(); wolves.forEach(w => { w.dead = false; w.scared = false; }); canvas.focus();
     });
 
     setTimeout(() => { canvas.focus(); }, 300);
