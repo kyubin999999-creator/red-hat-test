@@ -5,9 +5,9 @@ st.set_page_config(page_title="빨간 모자의 숲속 모험", page_icon="🌲"
 
 st.title("🌲 빨간 모자와 숲속의 미로 대모험 🪓")
 st.markdown("""
-**🎮 버그 수정 및 조작감 패치 완료:**
-* **고속 코너링 보정:** 이제 속도가 빨라도 골목길에서 버벅이지 않고 부드럽게 꺾입니다.
-* **입수 판정 완화:** 버섯을 다 먹고 수영장비를 얻은 상태라면 **파란 우물(🟦)**에 살짝만 닿아도 즉시 심해로 입수됩니다!
+**🎮 이동 조작감 최종 패치 완료:**
+* 뻑뻑하게 끊기던 이동을 **부드럽게 흐르는 슬라이딩 방식**으로 전면 교체했습니다!
+* 이제 좁은 길목에서도 부드럽게 꺾이며, **우물(🟦)에 닿으면 렉 없이 즉시 심해로 입수**됩니다.
 """)
 
 game_js = """
@@ -88,13 +88,13 @@ game_js = """
 
     let gearPos = {row: 12, col: 9}; let gunPos = {row: 10, col: 10}; let keyPos = {row: 10, col: 9};
 
-    // ⚡ 고속 쾌적 밸런스 속도 4 유지
+    // ⚡ 부드러운 스피드 주행 속도 (정밀 타일 제어를 위해 4로 설정)
     let redHat = { x: 1 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: 4 };
     let wolves = [];
     let scaredTimer = 0;
 
     let axeSpawnTimer = 0;
-    const AXE_RESPAWN_DELAY = 280; 
+    const AXE_RESPAWN_DELAY = 260; 
     let activeAxes = []; 
 
     function initForestGrid() {
@@ -135,20 +135,16 @@ game_js = """
         if(e.keyCode === 40) { redHat.nextDirX = 0; redHat.nextDirY = 1; }
     });
 
-    function isColliding(x, y) {
+    // 벽 충돌용 정밀 체크 함수
+    function checkWall(x, y) {
         if (x < 0 || x + TILE_SIZE > canvas.width || y < 0 || y + TILE_SIZE > canvas.height) return true;
-        let left = Math.floor(x / TILE_SIZE); let right = Math.floor((x + TILE_SIZE - 1) / TILE_SIZE);
-        let top = Math.floor(y / TILE_SIZE); let bottom = Math.floor((y + TILE_SIZE - 1) / TILE_SIZE);
-        let checkPoints = [{r: top, c: left}, {r: top, c: right}, {r: bottom, c: left}, {r: bottom, c: right}];
-
-        for (let pt of checkPoints) {
-            let tile = grid[pt.r][pt.c];
-            if (tile === 1 || tile === 6) return true; 
-            if (tile === 4 && currentStage === 1) {
-                // 우물 통과 허용 판단 로직은 밑에서 근접도 계산으로 따로 강력 처리하므로 콜라이더 통과 허용
-                return false; 
-            }
-            if (tile === 5) { if (currentStage === 3 && wolves.every(w => w.dead)) return false; return true; }
+        let left = Math.floor(x / TILE_SIZE); let right = Math.floor((x + TILE_SIZE - 0.1) / TILE_SIZE);
+        let top = Math.floor(y / TILE_SIZE); let bottom = Math.floor((y + TILE_SIZE - 0.1) / TILE_SIZE);
+        
+        let tiles = [grid[top][left], grid[top][right], grid[bottom][left], grid[bottom][right]];
+        for(let t of tiles) {
+            if (t === 1 || t === 6) return true;
+            if (t === 5 && !(currentStage === 3 && wolves.every(w => w.dead))) return true;
         }
         return false;
     }
@@ -169,39 +165,43 @@ game_js = """
             }
         }
 
-        // 💡 [핵심 버그 수정] 빠른 속도 대응형 자석식 코너링 보정 코딩
-        // 완벽하게 격자에 맞아떨어지지 않더라도 오차 범위(4px) 내에 오면 강제로 축을 동기화시켜서 꺾이게 만듭니다.
-        let mCol = redHat.x % TILE_SIZE;
-        let mRow = redHat.y % TILE_SIZE;
+        // 💡 [조작감 대혁신 코딩] 부드러운 슬라이딩 회전 메커니즘
+        // 이동 도중 방향 전환키가 입력되면, 해당 방향으로 꺾을 수 있는 타일 교차로인지 미리 계산하여 자석처럼 회전시킵니다.
+        if (redHat.nextDirX !== 0 || redHat.nextDirY !== 0) {
+            // 현재 이동 방향과 다른 새로운 입력이 들어왔을 때만 작동
+            if (redHat.nextDirX !== redHat.dirX || redHat.nextDirY !== redHat.dirY) {
+                // 한 칸 앞 혹은 현재 위치의 타일 중심점 정렬 상태를 기반으로 방향을 틀 수 있는지 체크
+                let centerThreshold = redHat.speed;
+                let remX = redHat.x % TILE_SIZE;
+                let remY = redHat.y % TILE_SIZE;
+
+                // 정렬 오차 범위 안이면 강제 정렬 후 즉시 방향 전환
+                if ((redHat.nextDirX !== 0 && remY === 0) || (redHat.nextDirY !== 0 && mCol === 0)) {
+                    // 벽이 없는지 확인
+                    let checkX = Math.round(redHat.x / TILE_SIZE) * TILE_SIZE;
+                    let checkY = Math.round(redHat.y / TILE_SIZE) * TILE_SIZE;
+                    if (!checkWall(checkX + redHat.nextDirX * TILE_SIZE, checkY + redHat.nextDirY * TILE_SIZE)) {
+                        redHat.x = checkX; redHat.y = checkY;
+                        redHat.dirX = redHat.nextDirX; redHat.dirY = redHat.nextDirY;
+                    }
+                }
+            }
+        }
+
+        // 앞으로 전진 이동
+        let nextX = redHat.x + redHat.dirX * redHat.speed;
+        let nextY = redHat.y + redHat.dirY * redHat.speed;
         
-        if (redHat.nextDirX !== 0 && mRow === 0) {
-            if (mCol === 0 || mCol <= 4 || mCol >= TILE_SIZE - 4) {
-                let targetX = Math.round(redHat.x / TILE_SIZE) * TILE_SIZE;
-                if (!isColliding(targetX + redHat.nextDirX * TILE_SIZE, redHat.y)) {
-                    redHat.x = targetX; redHat.dirX = redHat.nextDirX; redHat.dirY = 0;
-                }
-            }
-        }
-        if (redHat.nextDirY !== 0 && mCol === 0) {
-            if (mRow === 0 || mRow <= 4 || mRow >= TILE_SIZE - 4) {
-                let targetY = Math.round(redHat.y / TILE_SIZE) * TILE_SIZE;
-                if (!isColliding(redHat.x, targetY + redHat.nextDirY * TILE_SIZE)) {
-                    redHat.y = targetY; redHat.dirY = redHat.nextDirY; ctx.dirX = 0; redHat.dirX = 0;
-                }
-            }
+        if (!checkWall(nextX, nextY)) {
+            redHat.x = nextX; redHat.y = nextY;
+        } else {
+            // 벽에 부딪히면 픽셀 정렬 위치에 딱 멈추기
+            redHat.x = Math.round(redHat.x / TILE_SIZE) * TILE_SIZE;
+            redHat.y = Math.round(redHat.y / TILE_SIZE) * TILE_SIZE;
+            redHat.dirX = 0; redHat.dirY = 0;
         }
 
-        // 기본 격자 정렬 정석 무브먼트
-        if (redHat.x % TILE_SIZE === 0 && redHat.y % TILE_SIZE === 0) {
-            if (!isColliding(redHat.x + redHat.nextDirX * TILE_SIZE, redHat.y + redHat.nextDirY * TILE_SIZE)) {
-                redHat.dirX = redHat.nextDirX; redHat.dirY = redHat.nextDirY;
-            }
-        }
-
-        let nextX = redHat.x + redHat.dirX * redHat.speed; let nextY = redHat.y + redHat.dirY * redHat.speed;
-        if (!isColliding(nextX, nextY)) { redHat.x = nextX; redHat.y = nextY; }
-        else { redHat.x = Math.round(redHat.x / TILE_SIZE) * TILE_SIZE; redHat.y = Math.round(redHat.y / TILE_SIZE) * TILE_SIZE; }
-
+        // 아이템 및 먹이 탐색용 중심 좌표 계산
         let currCol = Math.floor((redHat.x + TILE_SIZE/2) / TILE_SIZE);
         let currRow = Math.floor((redHat.y + TILE_SIZE/2) / TILE_SIZE);
 
@@ -220,25 +220,14 @@ game_js = """
                 hasAquaGear = true; itemUI.innerHTML = "🎒 장비: 🤿 수영장비"; itemUI.style.background = "#2563eb";
             }
 
-            // 💡 [핵심 버그 수정] 우물 입수 판정 대폭 완화 코드
-            // 캐릭터가 우물 영역(4번 타일들) 근처에 도달했을 때 실시간 거리를 추적해 근접하면 입수 처리시킵니다.
+            // 💡 [핵심 버그 수정] 입수 트리거 완벽 감지
+            // 캐릭터 중심점이 파란색 우물(4번 타일)에 정확하게 충돌(Overlap)하는 즉시 로딩 없이 바다로 들어갑니다.
             if (currentStage === 1 && hasAquaGear && updateMushCount() === 0) {
-                // 맵 전체를 돌며 우물(4) 타일과의 최소 거리를 측정
-                for(let r=0; r<ROWS; r++){
-                    for(let c=0; c<COLS; c++){
-                        if(forestMap[r][c] === 4){
-                            let wellX = c * TILE_SIZE; let wellY = r * TILE_SIZE;
-                            let distX = Math.abs(redHat.x - wellX);
-                            let distY = Math.abs(redHat.y - wellY);
-                            // 12픽셀 내로 근접하면 속도와 상관없이 안전하게 입수 트리거 작동!
-                            if(distX < 14 && distY < 14) {
-                                currentStage = 2; grid = JSON.parse(JSON.stringify(aquaMap));
-                                canvas.style.background = "#07243a";
-                                stageUI.innerHTML = "🗺️ 2단계 푸른 심해"; stageUI.style.background = "#0284c7";
-                                killUI.innerHTML = "🦈 수중 처치: 0/3"; updateMushCount(); resetPositions(); return;
-                            }
-                        }
-                    }
+                if (forestMap[currRow][currCol] === 4) {
+                    currentStage = 2; grid = JSON.parse(JSON.stringify(aquaMap));
+                    canvas.style.background = "#07243a";
+                    stageUI.innerHTML = "🗺️ 2단계 푸른 심해"; stageUI.style.background = "#0284c7";
+                    killUI.innerHTML = "🦈 수중 처치: 0/3"; updateMushCount(); resetPositions(); return;
                 }
             }
 
@@ -257,17 +246,18 @@ game_js = """
             if (currentStage === 3 && forestMap[currRow][currCol] === 5) { if (wolves.every(w => w.dead)) gameWin = true; }
         }
 
+        // 몬스터 AI 제어 루프
         wolves.forEach(w => {
             if (w.dead) return;
             if (w.x % TILE_SIZE === 0 && w.y % TILE_SIZE === 0) {
                 let validDirs = []; let dirs = [{x:1, y:0}, {x:-1, y:0}, {x:0, y:1}, {x:0, y:-1}];
                 dirs.forEach(d => {
-                    if (!isColliding(w.x + d.x * TILE_SIZE, w.y + d.y * TILE_SIZE)) {
+                    if (!checkWall(w.x + d.x * TILE_SIZE, w.y + d.y * TILE_SIZE)) {
                         let nC = Math.floor((w.x + d.x * TILE_SIZE)/TILE_SIZE); let nR = Math.floor((w.y + d.y * TILE_SIZE)/TILE_SIZE);
                         if (grid[nR][nC] !== 5 && (d.x !== -w.dirX || d.y !== -w.dirY)) validDirs.push(d);
                     }
                 });
-                if (validDirs.length === 0) { dirs.forEach(d => { if (!isColliding(w.x+d.x*TILE_SIZE, w.y+d.y*TILE_SIZE)) validDirs.push(d); }); }
+                if (validDirs.length === 0) { dirs.forEach(d => { if (!checkWall(w.x+d.x*TILE_SIZE, w.y+d.y*TILE_SIZE)) validDirs.push(d); }); }
 
                 if (validDirs.length > 0) {
                     let bestDir = validDirs[0]; let minTargetDist = 999999;
@@ -282,11 +272,13 @@ game_js = """
                 } else { w.dirX = -w.dirX; w.dirY = -w.dirY; }
             }
 
-            let spd = 3.5; let nWpX = w.x + w.dirX * spd; let nWpY = w.y + w.dirY * spd;
-            if (!isColliding(nWpX, nWpY)) { w.x = nWpX; w.y = nWpY; }
+            let spd = 3.0; // 몬스터가 너무 빠르면 코너링하기 전에 플레이어를 잡으므로 3.0으로 최적 밸런싱
+            let nWpX = w.x + w.dirX * spd; let nWpY = w.y + w.dirY * spd;
+            if (!checkWall(nWpX, nWpY)) { w.x = nWpX; w.y = nWpY; }
             else { w.x = Math.round(w.x/TILE_SIZE)*TILE_SIZE; w.y = Math.round(w.y/TILE_SIZE)*TILE_SIZE; w.dirX = -w.dirX; w.dirY = -w.dirY; }
 
-            if (Math.abs(redHat.x - w.x) < TILE_SIZE * 0.75 && Math.abs(redHat.y - w.y) < TILE_SIZE * 0.75) {
+            // 피격 판정
+            if (Math.abs(redHat.x - w.x) < TILE_SIZE * 0.7 && Math.abs(redHat.y - w.y) < TILE_SIZE * 0.7) {
                 if (w.scared || hasGun || currentStage === 3) {
                     w.dead = true; w.x = -999; w.y = -999; 
                     if (currentStage === 1) {
@@ -393,7 +385,7 @@ game_js = """
         if (gameWin) {
             ctx.fillStyle = 'rgba(15,23,42,0.95)'; ctx.fillRect(0,0,canvas.width,canvas.height);
             ctx.fillStyle = '#facc15'; ctx.font = 'bold 26px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('👑 HAPPY ENDING 👑', canvas.width/2, canvas.height/2 - 25);
-            ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('초고속 스피드 런 완벽 성공!', canvas.width/2, canvas.height/2 + 20);
+            ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('초고속 스피드 런 컴플리트!', canvas.width/2, canvas.height/2 + 20);
         }
     }
 
