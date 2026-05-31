@@ -32,6 +32,7 @@ pacman_js = """
 
     const TILE_SIZE = 22; const COLS = 20; const ROWS = 20;
     
+    // 0: 잔디, 1: 나무(벽), 2: 버섯, 3: 황금 별, 4: 물웅덩이, 5: 할머니 집
     const map = [
         [1,1,1,1,1,1,1,1,1,5,5,1,1,1,1,1,1,1,1,1],
         [1,3,2,2,2,4,4,2,2,0,0,2,2,4,4,2,2,2,3,1],
@@ -74,11 +75,10 @@ pacman_js = """
 
     let scaredTimer = 0;
 
-    // 포커스 자동 유도를 포함한 전역 키 입력 수정
     window.addEventListener('keydown', function(e) {
         if([37, 38, 39, 40].indexOf(e.keyCode) > -1) { 
             e.preventDefault(); 
-            canvas.focus(); // 방향키 누르면 자동으로 캔버스 활성화
+            canvas.focus();
         }
     }, {passive: false});
 
@@ -95,7 +95,7 @@ pacman_js = """
         let top = Math.floor(y / TILE_SIZE);
         let bottom = Math.floor((y + TILE_SIZE - 1) / TILE_SIZE);
         
-        if(left < 0 || right >= COLS) return false;
+        if(left < 0 || right >= COLS || top < 0 || bottom >= ROWS) return true;
 
         let blockedTypes = [1, 4];
         if (blockedTypes.includes(grid[top][left]) || blockedTypes.includes(grid[top][right]) || 
@@ -113,6 +113,7 @@ pacman_js = """
             if (scaredTimer === 0) wolves.forEach(w => w.scared = false);
         }
 
+        // 빨간 모자 이동 규칙
         if (redHat.x % TILE_SIZE === 0 && redHat.y % TILE_SIZE === 0) {
             if (!isColliding(redHat.x + redHat.nextDirX * TILE_SIZE, redHat.y + redHat.nextDirY * TILE_SIZE)) {
                 redHat.dirX = redHat.nextDirX; redHat.dirY = redHat.nextDirY;
@@ -145,25 +146,66 @@ pacman_js = """
             scoreUI.innerHTML = `🍄 바구니 속 버섯: ${score} ${totalMushrooms > 0 ? `(남은 버섯: ${totalMushrooms})` : '◀ 🏡할머니 집으로 가세요!'}`;
         }
 
+        // ⭐ [무한루프 방지 패치] 늑대 AI 로직 대폭 개선
         wolves.forEach(w => {
             if (w.x % TILE_SIZE === 0 && w.y % TILE_SIZE === 0) {
                 let validDirs = [];
                 let dirs = [{x:1, y:0}, {x:-1, y:0}, {x:0, y:1}, {x:0, y:-1}];
+                
                 dirs.forEach(d => {
-                    if (!isColliding(w.x + d.x * TILE_SIZE, w.y + d.y * TILE_SIZE) && grid[Math.floor((w.y + d.y*TILE_SIZE)/TILE_SIZE)][Math.floor((w.x + d.x*TILE_SIZE)/TILE_SIZE)] !== 5) {
-                        if (d.x !== -w.dirX || d.y !== -w.dirY) validDirs.push(d);
+                    let nextX = w.x + d.x * TILE_SIZE;
+                    let nextY = w.y + d.y * TILE_SIZE;
+                    
+                    if (!isColliding(nextX, nextY)) {
+                        let nextCol = Math.floor(nextX / TILE_SIZE);
+                        let nextRow = Math.floor(nextY / TILE_SIZE);
+                        
+                        // 늑대는 할머니 집(5) 영역 내부로 들어가지 못하게 제한
+                        if (nextRow >= 0 && nextRow < ROWS && nextCol >= 0 && nextCol < COLS && grid[nextRow][nextCol] !== 5) {
+                            // 자연스러운 전진을 위해 왔던 길 반대 방향은 우선 제외
+                            if (d.x !== -w.dirX || d.y !== -w.dirY) {
+                                validDirs.push(d);
+                            }
+                        }
                     }
                 });
+
+                // 막다른 길에 갇힌 경우 예외 처리: 왔던 길을 포함해 갈 수 있는 모든 길을 다시 탐색
                 if (validDirs.length === 0) {
-                    dirs.forEach(d => { if (!isColliding(w.x + d.x * TILE_SIZE, w.y + d.y * TILE_SIZE)) validDirs.push(d); });
+                    dirs.forEach(d => {
+                        if (!isColliding(w.x + d.x * TILE_SIZE, w.y + d.y * TILE_SIZE)) {
+                            validDirs.push(d);
+                        }
+                    });
                 }
-                let chosen = validDirs[Math.floor(Math.random() * validDirs.length)];
-                if (chosen) { w.dirX = chosen.x; w.dirY = chosen.y; }
+
+                // 이동 가능한 경로가 존재할 때만 방향 전환 (프리징 원천 차단)
+                if (validDirs.length > 0) {
+                    let chosen = validDirs[Math.floor(Math.random() * validDirs.length)];
+                    w.dirX = chosen.x; 
+                    w.dirY = chosen.y;
+                } else {
+                    // 완전히 사방이 막혔다면 즉시 반대 방향으로 반사시킴
+                    w.dirX = -w.dirX;
+                    w.dirY = -w.dirY;
+                }
             }
 
-            w.x += w.dirX * (w.scared ? 1 : 1.5);
-            w.y += w.dirY * (w.scared ? 1 : 1.5);
+            // 안전한 범위 내에서만 좌표 이동
+            let nextWpX = w.x + w.dirX * (w.scared ? 1 : 1.5);
+            let nextWpY = w.y + w.dirY * (w.scared ? 1 : 1.5);
+            
+            if (!isColliding(nextWpX, nextWpY)) {
+                w.x = nextWpX;
+                w.y = nextWpY;
+            } else {
+                // 한 걸음 전진하려는데 벽에 걸렸다면 픽셀 오차 조정을 위해 강제 타일 정렬
+                w.x = Math.round(w.x / TILE_SIZE) * TILE_SIZE;
+                w.y = Math.round(w.y / TILE_SIZE) * TILE_SIZE;
+                w.dirX = -w.dirX; w.dirY = -w.dirY; // 즉시 반대 방향 전환
+            }
 
+            // 충돌 감지 (빨간 모자와 늑대)
             if (Math.abs(redHat.x - w.x) < TILE_SIZE * 0.7 && Math.abs(redHat.y - w.y) < TILE_SIZE * 0.7) {
                 if (w.scared) {
                     w.x = 9 * TILE_SIZE; w.y = 9 * TILE_SIZE; w.scared = false; score += 30;
@@ -209,7 +251,7 @@ pacman_js = """
             }
         }
 
-        // 빨간 망토 입은 소녀 그래픽
+        // 빨간 망토 소녀 그리기
         let px = redHat.x + TILE_SIZE/2; let py = redHat.y + TILE_SIZE/2;
         ctx.save();
         ctx.beginPath(); ctx.arc(px, py - 1, 8, 0, Math.PI * 2); ctx.fillStyle = '#dc2626'; ctx.fill();
@@ -218,7 +260,7 @@ pacman_js = """
         ctx.beginPath(); ctx.arc(px, py + 5, 2, 0, Math.PI*2); ctx.fillStyle = '#b91c1c'; ctx.fill();
         ctx.restore();
 
-        // 늑대 그래픽
+        // 야수 늑대 그리기
         wolves.forEach(w => {
             let wx = w.x + TILE_SIZE/2; let wy = w.y + TILE_SIZE/2;
             ctx.save();
@@ -256,7 +298,6 @@ pacman_js = """
         scoreUI.innerHTML = `🍄 바구니 속 버섯: 0 (남은 버섯: ${totalMushrooms})`; livesUI.innerHTML = "❤️ 목숨: ❤️❤️❤️"; resetPositions(); canvas.focus();
     });
 
-    // 시작 시 자동 포커스
     setTimeout(() => { canvas.focus(); }, 300);
     resetPositions(); loop();
 </script>
