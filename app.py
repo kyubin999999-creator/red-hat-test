@@ -18,10 +18,10 @@ pacman_js = """
         <button id="p-reset" style="padding: 8px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px;">🔄 처음부터</button>
     </div>
     
-    <canvas id="pacmanCanvas" width="440" height="440" style="border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.6); background: #14532d; border: 4px solid #78350f;" tabindex="0"></canvas>
+    <canvas id="pacmanCanvas" width="440" height="440" style="border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.6); background: #14532d; border: 4px solid #78350f; outline: none;" tabindex="0"></canvas>
     
     <div style="font-size: 13px; color: #a8a29e; margin-top: 10px;">
-        🎮 <b>조작법:</b> 화면을 <b>마우스로 클릭</b>한 후, 키보드 방향키(`←` `→` `↑` `↓`)로 빨간 모자를 움직이세요!
+        🎮 <b>조작법:</b> 키보드 방향키(`←` `→` `↑` `↓`)를 누르면 빨간 모자가 바로 움직입니다!
     </div>
 </div>
 
@@ -32,7 +32,6 @@ pacman_js = """
 
     const TILE_SIZE = 22; const COLS = 20; const ROWS = 20;
     
-    // 0: 바닥(잔디), 1: 빽빽한 나무(벽), 2: 버섯, 3: 황금 별, 4: 물웅덩이(지나갈 수 없는 장애물), 5: 할머니 집 탈출구
     const map = [
         [1,1,1,1,1,1,1,1,1,5,5,1,1,1,1,1,1,1,1,1],
         [1,3,2,2,2,4,4,2,2,0,0,2,2,4,4,2,2,2,3,1],
@@ -60,14 +59,12 @@ pacman_js = """
     let score = 0; let lives = 3; let gameOver = false; let gameWin = false;
     let totalMushrooms = 0;
 
-    // 버섯 총 개수 파악
     for(let r=0; r<ROWS; r++) {
         for(let c=0; c<COLS; c++) {
             if(grid[r][c] === 2 || grid[r][c] === 3) totalMushrooms++;
         }
     }
 
-    // 빨간 모자와 늑대 좌표 설정
     let redHat = { x: 9 * TILE_SIZE, y: 16 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: 2 };
     let wolves = [
         { x: 9 * TILE_SIZE, y: 8 * TILE_SIZE, dirX: 1, dirY: 0, scared: false },
@@ -77,19 +74,21 @@ pacman_js = """
 
     let scaredTimer = 0;
 
-    // 키보드 방향키 기본 스크롤 현상 막기
+    // 포커스 자동 유도를 포함한 전역 키 입력 수정
     window.addEventListener('keydown', function(e) {
-        if([37, 38, 39, 40].indexOf(e.keyCode) > -1) { e.preventDefault(); }
-    }, false);
+        if([37, 38, 39, 40].indexOf(e.keyCode) > -1) { 
+            e.preventDefault(); 
+            canvas.focus(); // 방향키 누르면 자동으로 캔버스 활성화
+        }
+    }, {passive: false});
 
-    window.addEventListener('keydown', e => {
+    canvas.addEventListener('keydown', e => {
         if(e.keyCode === 37) { redHat.nextDirX = -1; redHat.nextDirY = 0; }
         if(e.keyCode === 39) { redHat.nextDirX = 1; redHat.nextDirY = 0; }
         if(e.keyCode === 38) { redHat.nextDirX = 0; redHat.nextDirY = -1; }
         if(e.keyCode === 40) { redHat.nextDirX = 0; redHat.nextDirY = 1; }
     });
 
-    // 벽(나무=1, 물=4) 충돌 검사
     function isColliding(x, y) {
         let left = Math.floor(x / TILE_SIZE);
         let right = Math.floor((x + TILE_SIZE - 1) / TILE_SIZE);
@@ -114,7 +113,6 @@ pacman_js = """
             if (scaredTimer === 0) wolves.forEach(w => w.scared = false);
         }
 
-        // 빨간 모자 위치 제어
         if (redHat.x % TILE_SIZE === 0 && redHat.y % TILE_SIZE === 0) {
             if (!isColliding(redHat.x + redHat.nextDirX * TILE_SIZE, redHat.y + redHat.nextDirY * TILE_SIZE)) {
                 redHat.dirX = redHat.nextDirX; redHat.dirY = redHat.nextDirY;
@@ -126,11 +124,9 @@ pacman_js = """
             redHat.y += redHat.dirY * redHat.speed;
         }
 
-        // 비밀 터널(좌우 포탈)
         if (redHat.x < -TILE_SIZE/2) redHat.x = COLS * TILE_SIZE - TILE_SIZE/2;
         if (redHat.x > COLS * TILE_SIZE - TILE_SIZE/2) redHat.x = -TILE_SIZE/2;
 
-        // 아이템 체크 및 엔딩 분기
         let currCol = Math.floor((redHat.x + TILE_SIZE/2) / TILE_SIZE);
         let currRow = Math.floor((redHat.y + TILE_SIZE/2) / TILE_SIZE);
 
@@ -143,14 +139,12 @@ pacman_js = """
                 wolves.forEach(w => w.scared = true);
             }
             
-            // 모든 버섯을 딴 상태에서 할머니 집 구역(5)에 도달하면 탈출 성공!
             if (totalMushrooms <= 0 && grid[currRow][currCol] === 5) {
                 gameWin = true;
             }
             scoreUI.innerHTML = `🍄 바구니 속 버섯: ${score} ${totalMushrooms > 0 ? `(남은 버섯: ${totalMushrooms})` : '◀ 🏡할머니 집으로 가세요!'}`;
         }
 
-        // 늑대 AI 및 충돌 연산
         wolves.forEach(w => {
             if (w.x % TILE_SIZE === 0 && w.y % TILE_SIZE === 0) {
                 let validDirs = [];
@@ -189,7 +183,6 @@ pacman_js = """
         wolves[2] = { x: 9 * TILE_SIZE, y: 12 * TILE_SIZE, dirX: 0, dirY: -1, scared: wolves[2].scared };
     }
 
-    // 전용 그래픽 렌더링 함수
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -197,60 +190,51 @@ pacman_js = """
             for (let c = 0; c < COLS; c++) {
                 let x = c * TILE_SIZE; let y = r * TILE_SIZE;
                 
-                if (grid[r][c] === 1) { // 1. 깊은 숲 나무 벽
+                if (grid[r][c] === 1) { 
                     ctx.fillStyle = '#064e3b'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
                     ctx.fillStyle = '#047857'; ctx.fillRect(x+4, y+4, TILE_SIZE-8, TILE_SIZE-8);
-                } else if (grid[r][c] === 4) { // 2. 물웅덩이 장애물
+                } else if (grid[r][c] === 4) { 
                     ctx.fillStyle = '#1d4ed8'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
                     ctx.fillStyle = '#3b82f6'; ctx.fillRect(x+2, y+2, TILE_SIZE-4, TILE_SIZE-4);
-                } else if (grid[r][c] === 5) { // 3. 할머니의 오두막집 탈출구 영역
+                } else if (grid[r][c] === 5) { 
                     ctx.fillStyle = '#b45309'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
                     ctx.font = '14px Arial'; ctx.fillText('🏡', x + TILE_SIZE/2, y + TILE_SIZE/2 + 2);
-                } else if (grid[r][c] === 2) { // 4. 일반 버섯
+                } else if (grid[r][c] === 2) { 
                     ctx.font = '13px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     ctx.fillText('🍄', x + TILE_SIZE/2, y + TILE_SIZE/2);
-                } else if (grid[r][c] === 3) { // 5. 황금 별
+                } else if (grid[r][c] === 3) { 
                     ctx.font = '15px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     ctx.fillText('⭐', x + TILE_SIZE/2, y + TILE_SIZE/2);
                 }
             }
         }
 
-        // 6. 진짜 '빨간 모자(후드)' 쓴 소녀 그리기 
+        // 빨간 망토 입은 소녀 그래픽
         let px = redHat.x + TILE_SIZE/2; let py = redHat.y + TILE_SIZE/2;
         ctx.save();
-        // 빨간 망토/모자 부분
         ctx.beginPath(); ctx.arc(px, py - 1, 8, 0, Math.PI * 2); ctx.fillStyle = '#dc2626'; ctx.fill();
-        // 얼굴 부분
         ctx.beginPath(); ctx.arc(px, py + 2, 5, 0, Math.PI * 2); ctx.fillStyle = '#fed7aa'; ctx.fill();
-        // 눈 그리기
         ctx.fillStyle = '#000'; ctx.fillRect(px - 3, py + 1, 1.5, 1.5); ctx.fillRect(px + 1, py + 1, 1.5, 1.5);
-        // 모자 리본 매듭
         ctx.beginPath(); ctx.arc(px, py + 5, 2, 0, Math.PI*2); ctx.fillStyle = '#b91c1c'; ctx.fill();
         ctx.restore();
 
-        // 7. 야수 늑대 그리기
+        // 늑대 그래픽
         wolves.forEach(w => {
             let wx = w.x + TILE_SIZE/2; let wy = w.y + TILE_SIZE/2;
             ctx.save();
             if (w.scared) {
-                // 겁먹은 유령 상태
                 ctx.font = '17px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.fillText('🥶', wx, wy);
             } else {
-                // 회색 늑대 몸통 구조물
                 ctx.beginPath(); ctx.arc(wx, wy, 7, 0, Math.PI*2); ctx.fillStyle = '#4b5563'; ctx.fill();
-                // 늑대 귀 뾰족하게
                 ctx.fillStyle = '#1f2937';
                 ctx.beginPath(); ctx.moveTo(wx - 6, wy - 4); ctx.lineTo(wx - 3, wy - 10); ctx.lineTo(wx, wy - 4); ctx.fill();
                 ctx.beginPath(); ctx.moveTo(wx + 6, wy - 4); ctx.lineTo(wx + 3, wy - 10); ctx.lineTo(wx, wy - 4); ctx.fill();
-                // 번쩍이는 노란 눈빛
                 ctx.fillStyle = '#facc15'; ctx.fillRect(wx - 3, wy - 2, 2, 2); ctx.fillRect(wx + 1, wy - 2, 2, 2);
             }
             ctx.restore();
         });
 
-        // 8. 게임 상태창 화면 띄우기
         if (gameOver) {
             ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0,0,canvas.width,canvas.height);
             ctx.fillStyle = '#ef4444'; ctx.font = 'bold 34px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2 - 15);
@@ -272,9 +256,10 @@ pacman_js = """
         scoreUI.innerHTML = `🍄 바구니 속 버섯: 0 (남은 버섯: ${totalMushrooms})`; livesUI.innerHTML = "❤️ 목숨: ❤️❤️❤️"; resetPositions(); canvas.focus();
     });
 
-    canvas.focus(); resetPositions(); loop();
+    // 시작 시 자동 포커스
+    setTimeout(() => { canvas.focus(); }, 300);
+    resetPositions(); loop();
 </script>
 """
 
-# 들여쓰기 에러 완벽 방지 처리
 components.html(pacman_js, height=520)
