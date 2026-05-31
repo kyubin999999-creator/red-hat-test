@@ -6,13 +6,12 @@ st.set_page_config(page_title="잔혹동화: 빨간 모자의 역습", page_icon
 
 st.title("🌲 잔혹동화: 빨간 모자와 숲속의 늑대들 🪓")
 st.markdown("""
-**🎮 플레이 가이드:**
-1. **1단계 숲속:** 미로 안의 황금 별(⭐)을 먹으면 무적 상태가 됩니다! 도망치는 늑대를 **3마리** 사냥하세요. 성공하면 중앙에 **수영 장비(🤿)**가 나타납니다. 장비를 먹고 파란색 물웅덩이 블록으로 들어가세요!
-2. **2단계 심해:** 물속에 숨겨진 **사냥꾼의 총(🔫)**을 찾으세요! 총을 얻으면 영구 무적이 됩니다. 수중 괴물들을 사냥해 **열쇠(🔑)**를 얻고 다시 지상으로 복귀하세요!
-3. **3단계 최종전:** 지상으로 돌아와 총의 강력한 위력으로 남은 늑대들을 **완전히 소탕**한 뒤, 최상단의 **할머니 집🏡**으로 들어가면 대망의 트루 엔딩!
+**🎮 플레이 가이드 (매운맛 버전):**
+1. **1단계 숲속:** 황금 별(⭐)을 먹고 도망치는 늑대를 **3마리** 사냥하세요. 무적 시간이 짧으니 서둘러야 합니다! 성공하면 중앙에 **수영 장비(🤿)**가 나타납니다.
+2. **2단계 심해:** 물속 괴물들을 피해 **사냥꾼의 총(🔫)**을 찾으세요! 총을 얻으면 영구 무적이 됩니다. 괴물들을 사냥해 **열쇠(🔑)**를 얻고 탈출하세요!
+3. **3단계 최종전:** 지상으로 돌아와 총의 위력으로 남은 늑대들을 **완전히 소탕**한 뒤, **할머니 집🏡**으로 들어가면 대망의 트루 엔딩!
 """)
 
-# --- 데이터 판정 및 스폰 위치 완전 수정 버전 ---
 game_js = """
 <div style="text-align: center; font-family: 'Malgun Gothic', sans-serif; color: white;">
     <div style="display: flex; justify-content: space-between; align-items: center; max-width: 440px; margin: 0 auto 12px auto;">
@@ -34,7 +33,6 @@ game_js = """
 
     const TILE_SIZE = 22; const COLS = 20; const ROWS = 20;
 
-    // 💡 판정 수정: 1이 어두운 '벽', 0이 연두색 '길'입니다.
     const forestMap = [
         [1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1],
         [1,3,0,0,1,4,4,4,0,0,0,0,4,4,4,1,0,0,3,1],
@@ -90,7 +88,8 @@ game_js = """
 
     let gearPos = {row: 12, col: 9}; let gunPos = {row: 10, col: 10}; let keyPos = {row: 10, col: 9};
 
-    let redHat = { x: 9 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: 2 };
+    // 캐릭터 속도 조정
+    let redHat = { x: 1 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: 2 };
     let wolves = [];
     let scaredTimer = 0;
 
@@ -98,7 +97,7 @@ game_js = """
         grid = JSON.parse(JSON.stringify(forestMap));
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
-                if (grid[r][c] === 0) grid[r][c] = 2; // 연두색 길 위에 버섯 깔기
+                if (grid[r][c] === 0) grid[r][c] = 2; 
             }
         }
     }
@@ -114,7 +113,6 @@ game_js = """
         if(e.keyCode === 40) { redHat.nextDirX = 0; redHat.nextDirY = 1; }
     });
 
-    // 💡 벽 충돌 판정 정상화 (1이 어두운 벽, 6이 심해 벽)
     function isColliding(x, y) {
         if (x < 0 || x + TILE_SIZE > canvas.width || y < 0 || y + TILE_SIZE > canvas.height) return true;
 
@@ -127,8 +125,7 @@ game_js = """
 
         for (let pt of checkPoints) {
             let tile = grid[pt.r][pt.c];
-            if (tile === 1) return true; // 1은 벽이므로 갈 수 없음
-            if (tile === 6) return true; 
+            if (tile === 1 || tile === 6) return true; 
             if (tile === 4 && !hasAquaGear && currentStage === 1) return true; 
             if (tile === 5) {
                 if (currentStage === 3 && wolves.every(w => w.dead)) return false; 
@@ -141,6 +138,7 @@ game_js = """
     function update() {
         if (gameOver || gameWin) return;
 
+        // 💡 무적 타임 버프 단축 (더 쫄깃하게)
         if (scaredTimer > 0 && !hasGun && currentStage !== 3) {
             scaredTimer--;
             if (scaredTimer === 0) wolves.forEach(w => w.scared = false);
@@ -170,7 +168,7 @@ game_js = """
             
             if (grid[currRow][currCol] === 3) {
                 grid[currRow][currCol] = 0;
-                if (!hasGun && currentStage === 1) { scaredTimer = 350; wolves.forEach(w => w.scared = true); }
+                if (!hasGun && currentStage === 1) { scaredTimer = 220; wolves.forEach(w => w.scared = true); }
             }
             
             if (currentStage === 1 && gearSpawned && !hasAquaGear && currRow === gearPos.row && currCol === gearPos.col) {
@@ -207,7 +205,6 @@ game_js = """
             }
         }
 
-        // 💡 늑대들의 인공지능이 정상화되어 이제 연두색 길로만 추격합니다.
         wolves.forEach(w => {
             if (w.dead) return;
 
@@ -223,9 +220,28 @@ game_js = """
                 if (validDirs.length === 0) {
                     dirs.forEach(d => { if (!isColliding(w.x+d.x*TILE_SIZE, w.y+d.y*TILE_SIZE)) validDirs.push(d); });
                 }
+
+                // 💡 AI 추격 로직 보강: 80%의 확률로 유저를 집요하게 타겟팅 추격
                 if (validDirs.length > 0) {
-                    w.dirX = validDirs[0].x; w.dirY = validDirs[0].y;
-                    if(Math.random() > 0.3) {
+                    let bestDir = validDirs[0];
+                    let minTargetDist = 999999;
+                    
+                    validDirs.forEach(d => {
+                        let nextWcX = w.x + d.x * TILE_SIZE;
+                        let nextWcY = w.y + d.y * TILE_SIZE;
+                        let dist = Math.pow(nextWcX - redHat.x, 2) + Math.pow(nextWcY - redHat.y, 2);
+                        
+                        // 도망 상태일 때는 거리가 먼 쪽으로, 추격 상태일 때는 가까운 쪽으로 세팅
+                        if (w.scared || hasGun || currentStage === 3) {
+                            if (dist > minTargetDist || minTargetDist === 999999) { minTargetDist = dist; bestDir = d; }
+                        } else {
+                            if (dist < minTargetDist) { minTargetDist = dist; bestDir = d; }
+                        }
+                    });
+
+                    w.dirX = bestDir.x; w.dirY = bestDir.y;
+                    // 20%의 확률로만 랜덤 무작위 이동을 주어 변칙성 유지
+                    if(Math.random() < 0.2) {
                         let chosen = validDirs[Math.floor(Math.random() * validDirs.length)];
                         w.dirX = chosen.x; w.dirY = chosen.y;
                     }
@@ -234,7 +250,8 @@ game_js = """
                 }
             }
 
-            let spd = 1.0; 
+            // 💡 늑대 이동 속도 1.0 -> 2.0으로 2배 상향! (주인공과 동일한 속도)
+            let spd = 2.0; 
             let nWpX = w.x + w.dirX * spd; let nWpY = w.y + w.dirY * spd;
             if (!isColliding(nWpX, nWpY)) { w.x = nWpX; w.y = nWpY; }
             else { w.x = Math.round(w.x/TILE_SIZE)*TILE_SIZE; w.y = Math.round(w.y/TILE_SIZE)*TILE_SIZE; w.dirX = -w.dirX; w.dirY = -w.dirY; }
@@ -245,7 +262,7 @@ game_js = """
                     
                     if (currentStage === 1) {
                         forestKills++; killUI.innerHTML = `🐺 숲 늑대 사냥: ${forestKills}/3`;
-                        w.dead = false; w.x = 2*TILE_SIZE; w.y = 1*TILE_SIZE; // 길 위 안전지대로 리스폰
+                        w.dead = false; w.x = 2*TILE_SIZE; w.y = 1*TILE_SIZE; 
                         if (forestKills === 3) {
                             gearSpawned = true;
                             itemUI.innerHTML = "🎒 장비: 🤿 수영장비 출현!"; itemUI.style.background = "#f59e0b";
@@ -273,9 +290,7 @@ game_js = """
     }
 
     function resetPositions() {
-        // 💡 빨간 모자의 시작 위치를 18행 1열(연두색 길 위)로 안전하게 배치
         redHat.x = 1 * TILE_SIZE; redHat.y = 18 * TILE_SIZE; redHat.dirX = 0; redHat.dirY = 0; redHat.nextDirX = 0; redHat.nextDirY = 0;
-        // 💡 늑대들도 길 위(1행 2열, 1행 17열 등)에서 정상 생성되도록 좌표 변경
         wolves = [
             { x: 2 * TILE_SIZE, y: 1 * TILE_SIZE, dirX: 1, dirY: 0, scared: (currentStage===3||hasGun), dead: false },
             { x: 17 * TILE_SIZE, y: 1 * TILE_SIZE, dirX: -1, dirY: 0, scared: (currentStage===3||hasGun), dead: false },
@@ -291,10 +306,8 @@ game_js = """
                 let x = c * TILE_SIZE; let y = r * TILE_SIZE;
                 if (currentStage === 1 || currentStage === 3) {
                     if (forestMap[r][c] === 1) {
-                        // 🌲 벽: 원본 스크린샷의 어두운 청록색 벽 느낌 구현
                         ctx.fillStyle = '#064e3b'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE); 
                     } else if (forestMap[r][c] === 4) {
-                        // 🟦 물웅덩이 블록
                         ctx.fillStyle = '#2563eb'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE); 
                     } else if (forestMap[r][c] === 5) {
                         ctx.font = '15px Arial'; ctx.fillText('🏡', x+3, y+16); 
