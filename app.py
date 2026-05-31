@@ -6,9 +6,9 @@ st.set_page_config(page_title="빨간 모자의 역습", page_icon="🔫", layou
 
 st.title("🌲 빨간 모자의 역습: 사냥꾼의 총과 늑대 소탕 작전 🔫")
 st.markdown("""
-**최종 복수극 시나리오:**
-1. **숲속 (Stage 1):** 별(⭐)을 먹고 늑대를 **3마리** 잡아 **수영 장비(🤿)**를 얻은 후 물웅덩이로 돌진하세요!
-2. **물속 (Stage 2):** 숨겨진 **사냥꾼의 총(🔫)**을 찾으세요. 총을 얻으면 상시 무적이 됩니다! 물속 괴물을 **3마리** 잡고 **열쇠(🔑)**를 얻어 지상으로 복귀하세요!
+**🎮 게임 미션:**
+1. **숲속 (Stage 1):** 별(⭐)을 먹고 늑대를 **3마리** 잡아 **수영 장비(🤿)**를 얻은 후 물웅덩이(파란 블록)로 돌진하세요!
+2. **물속 (Stage 2):** 깊은 곳에 숨겨진 **사냥꾼의 총(🔫)**을 찾으세요. 총을 얻으면 상시 무적이 됩니다! 물속 괴물을 **3마리** 잡고 **열쇠(🔑)**를 얻어 지상으로 복귀하세요!
 3. **최종전 (Stage 3):** 지상으로 돌아와 총의 힘으로 늑대들을 **완전히 소탕**하고 할머니 집🏡으로 당당하게 걸어가세요!
 """)
 
@@ -34,7 +34,7 @@ pacman_js = """
 
     const TILE_SIZE = 22; const COLS = 20; const ROWS = 20;
     
-    // 지형 매핑 정보 (1: 나무벽, 4: 물웅덩이, 6: 심해벽)
+    // ⭐ 캐릭터 시작 위치(길)가 벽(1)으로 막히지 않도록 완전히 뚫어놓은 정밀한 안전 맵
     const forestMap = [
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
         [1,3,2,2,2,2,2,2,2,0,0,2,2,2,2,2,2,2,3,1],
@@ -46,13 +46,13 @@ pacman_js = """
         [1,1,1,1,2,1,1,1,0,1,1,0,1,1,1,2,1,1,1,1],
         [0,0,0,1,2,1,0,0,0,0,0,0,0,0,1,2,1,0,0,0],
         [1,1,1,1,2,1,0,1,1,0,0,1,1,0,1,2,1,1,1,1],
-        [4,4,4,4,2,0,0,1,0,0,0,0,1,0,0,2,4,4,4,4], // 물웅덩이 관문
+        [4,4,4,4,2,0,0,1,0,0,0,0,1,0,0,2,4,4,4,4], 
         [1,1,1,1,2,1,0,1,1,1,1,1,1,0,1,2,1,1,1,1],
         [0,0,0,1,2,1,0,0,0,0,0,0,0,0,1,2,1,0,0,0],
         [1,1,1,1,2,1,0,1,1,1,1,1,1,0,1,2,1,1,1,1],
-        [1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1],
+        [1,2,2,2,2,2,2,2,2,0,0,2,2,2,2,2,2,2,2,1],
         [1,2,1,1,2,1,1,1,2,1,1,2,1,1,1,2,1,1,2,1],
-        [1,3,2,1,2,2,2,2,2,0,0,2,2,2,2,2,1,2,3,1],
+        [1,3,2,1,2,2,2,2,2,0,0,2,2,2,2,2,1,2,3,1], // ◀ 하단 통로와 시작 위치 스폰 지역 안전 확보 완료
         [1,1,2,1,2,1,2,1,1,1,1,1,1,2,1,2,1,2,1,1],
         [1,2,2,2,2,1,2,2,2,1,1,2,2,2,1,2,2,2,2,1],
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
@@ -68,7 +68,7 @@ pacman_js = """
         [6,6,6,6,7,6,6,6,0,6,6,0,6,6,6,7,6,6,6,6],
         [0,0,0,6,7,6,0,0,0,0,0,0,0,0,6,7,6,0,0,0],
         [6,6,6,6,7,6,0,6,6,0,0,6,6,0,6,7,6,6,6,6],
-        [0,0,0,0,7,0,0,6,0,0,0,0,6,0,0,7,0,0,0,0], // 🔫 사냥꾼의 총이 출현할 중앙 방
+        [0,0,0,0,7,0,0,6,0,0,0,0,6,0,0,7,0,0,0,0], 
         [6,6,6,6,7,6,0,6,6,6,6,6,6,0,6,7,6,6,6,6],
         [0,0,0,6,7,6,0,0,0,0,0,0,0,0,6,7,6,0,0,0],
         [6,6,6,6,7,6,0,6,6,6,6,6,6,0,6,7,6,6,6,6],
@@ -80,22 +80,19 @@ pacman_js = """
         [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6]
     ];
 
-    // 최종 결전 지상전 맵 (할머니 집 오픈!)
     const finalForestMap = JSON.parse(JSON.stringify(forestMap));
-    finalForestMap[0][9] = 5; finalForestMap[0][10] = 5; // 할머니 집 해제
+    finalForestMap[0][9] = 5; finalForestMap[0][10] = 5; 
 
-    let currentStage = 1; // 1: 숲속, 2: 수중, 3: 최종 지상전
+    let currentStage = 1; 
     let grid = JSON.parse(JSON.stringify(forestMap));
     let gameOver = false; let gameWin = false;
 
-    // 미션 및 아이템 상태 변수
     let forestKills = 0; let waterKills = 0;
     let hasAquaGear = false; let gearSpawned = false;
     let hasGun = false;
     let hasKey = false; let keySpawned = false;
 
-    // 아이템 생성 좌표들
-    let gearPos = {row: 10, col: 9};
+    let gearPos = {row: 14, col: 9}; 
     let gunPos = {row: 9, col: 10};
     let keyPos = {row: 9, col: 9};
 
@@ -126,7 +123,7 @@ pacman_js = """
         if(left < 0 || right >= COLS || top < 0 || bottom >= ROWS) return true;
 
         let blockedTypes = (currentStage === 2) ? [6] : [1];
-        if(currentStage === 1 && !hasAquaGear) blockedTypes.push(4); // 수영 장비 없으면 물웅덩이는 벽
+        if(currentStage === 1 && !hasAquaGear) blockedTypes.push(4); 
 
         if (blockedTypes.includes(grid[top][left]) || blockedTypes.includes(grid[top][right]) || 
             blockedTypes.includes(grid[bottom][left]) || blockedTypes.includes(grid[bottom][right])) {
@@ -143,7 +140,6 @@ pacman_js = """
             if (scaredTimer === 0) wolves.forEach(w => w.scared = false);
         }
 
-        // 유저 이동 캐릭터 물리 계산
         if (redHat.x % TILE_SIZE === 0 && redHat.y % TILE_SIZE === 0) {
             if (!isColliding(redHat.x + redHat.nextDirX * TILE_SIZE, redHat.y + redHat.nextDirY * TILE_SIZE)) {
                 redHat.dirX = redHat.nextDirX; redHat.dirY = redHat.nextDirY;
@@ -167,14 +163,11 @@ pacman_js = """
                 if (!hasGun) { scaredTimer = 300; wolves.forEach(w => w.scared = true); }
             }
             
-            // [아이템 획득 검사 1]: 수영 장비 🤿
             if (currentStage === 1 && gearSpawned && !hasAquaGear && currRow === gearPos.row && currCol === gearPos.col) {
                 hasAquaGear = true;
-                itemUI.innerHTML = "🎒 장비: 🤿 수영장비";
-                itemUI.style.background = "#2563eb";
+                itemUI.innerHTML = "🎒 장비: 🤿 수영장비"; itemUI.style.background = "#2563eb";
             }
 
-            // [스테이지 전송 1]: 숲 ➡️ 물속 🌊
             if (currentStage === 1 && hasAquaGear && grid[currRow][currCol] === 4) {
                 currentStage = 2;
                 grid = JSON.parse(JSON.stringify(aquaMap));
@@ -185,35 +178,27 @@ pacman_js = """
                 return;
             }
 
-            // [아이템 획득 검사 2]: 사냥꾼의 총 🔫
             if (currentStage === 2 && !hasGun && currRow === gunPos.row && currCol === gunPos.col) {
-                hasGun = true;
-                wolves.forEach(w => w.scared = true); // 총을 들면 무조건 적들이 도망침 (상시 무적)
-                itemUI.innerHTML = "🎒 장비: 🤿 + 🔫 사냥꾼의 총!";
-                itemUI.style.background = "#dc2626";
+                hasGun = true; wolves.forEach(w => w.scared = true);
+                itemUI.innerHTML = "🎒 장비: 🤿 + 🔫 사냥꾼의 총!"; itemUI.style.background = "#dc2626";
             }
 
-            // [아이템 획득 검사 3]: 지상 복귀용 비밀 열쇠 🔑
             if (currentStage === 2 && keySpawned && !hasKey && currRow === keyPos.row && currCol === keyPos.col) {
-                hasKey = true;
-                currentStage = 3; // 3단계 최종 결전 진입!
+                hasKey = true; currentStage = 3; 
                 grid = JSON.parse(JSON.stringify(finalForestMap));
                 canvas.style.background = "#14532d"; canvas.style.border = "4px solid #f59e0b";
                 stageUI.innerHTML = "🗺️ 구역: 3단계 최종 복수전 (지상)"; stageUI.style.background = "#b45309";
                 killUI.innerHTML = "🐺 남은 늑대 제거!"; killUI.style.background = "#b91c1c";
                 itemUI.innerHTML = "🎒 장비: 👑 완전 무적 상태";
-                resetPositions(); wolves.forEach(w => { w.dead = false; w.scared = true; }); // 복귀한 늑대들 전부 공포 상태
+                resetPositions(); wolves.forEach(w => { w.dead = false; w.scared = true; }); 
                 return;
             }
 
-            // [최종 승리 조건]: 모든 늑대 소탕 후 할머니 집에 안전 도달!
             if (currentStage === 3 && grid[currRow][currCol] === 5) {
-                let allDead = wolves.every(w => w.dead);
-                if (allDead) gameWin = true;
+                if (wolves.every(w => w.dead)) gameWin = true;
             }
         }
 
-        // 적들 (늑대 / 상어) AI 로직 계산
         wolves.forEach(w => {
             if (w.dead) return;
 
@@ -237,35 +222,30 @@ pacman_js = """
                 }
             }
 
-            let spd = (w.scared || hasGun) ? 1 : 1.5;
+            let spd = (w.scared || hasGun || currentStage === 3) ? 1 : 1.5;
             let nWpX = w.x + w.dirX * spd; let nWpY = w.y + w.dirY * spd;
             if (!isColliding(nWpX, nWpY)) { w.x = nWpX; w.y = nWpY; }
             else { w.x = Math.round(w.x/TILE_SIZE)*TILE_SIZE; w.y = Math.round(w.y/TILE_SIZE)*TILE_SIZE; w.dirX = -w.dirX; w.dirY = -w.dirY; }
 
-            // 플레이어와의 충돌 판정 크래시 체크
             if (Math.abs(redHat.x - w.x) < TILE_SIZE * 0.7 && Math.abs(redHat.y - w.y) < TILE_SIZE * 0.7) {
                 if (w.scared || hasGun || currentStage === 3) {
-                    w.dead = true; // 적 즉시 처치
-                    w.x = -999; w.y = -999; // 화면 밖 격리
+                    w.dead = true; w.x = -999; w.y = -999; 
                     
                     if (currentStage === 1) {
-                        forestKills++;
-                        killUI.innerHTML = `🐺 숲 늑대 사냥: ${forestKills}/3`;
-                        w.dead = false; w.x = 9*TILE_SIZE; w.y = 8*TILE_SIZE; // 스테이지 1에선 무한 부활
+                        forestKills++; killUI.innerHTML = `🐺 숲 늑대 사냥: ${forestKills}/3`;
+                        w.dead = false; w.x = 9*TILE_SIZE; w.y = 1*TILE_SIZE; 
                         if (forestKills === 3) {
                             gearSpawned = true;
                             itemUI.innerHTML = "🎒 장비: 🤿 수영장비 출현!"; itemUI.style.background = "#f59e0b";
                         }
                     } else if (currentStage === 2) {
-                        waterKills++;
-                        killUI.innerHTML = `🦈 수중 처치: ${waterKills}/3`;
-                        w.dead = false; w.x = 9*TILE_SIZE; w.y = 4*TILE_SIZE; // 스테이지 2 무한 부활
+                        waterKills++; killUI.innerHTML = `🦈 수중 처치: ${waterKills}/3`;
+                        w.dead = false; w.x = 9*TILE_SIZE; w.y = 1*TILE_SIZE; 
                         if (waterKills === 3) {
                             keySpawned = true;
                             itemUI.innerHTML = "🎒 장비: 🔑 탈출 열쇠 출현!"; itemUI.style.background = "#a855f7";
                         }
                     } else if (currentStage === 3) {
-                        // 3단계 최종전: 처치 시 부활 불가, 영구 제거!
                         let remaining = wolves.filter(wolf => !wolf.dead).length;
                         if (remaining === 0) {
                             killUI.innerHTML = "🏡 문이 열렸습니다! 들어가세요!"; killUI.style.background = "#16a34a";
@@ -274,16 +254,22 @@ pacman_js = """
                         }
                     }
                 } else {
-                    gameOver = true; // 무적 아닐 때 부딪히면 사망
+                    gameOver = true;
                 }
             }
         });
     }
 
+    function resetPositions() {
+        redHat.x = 9 * TILE_SIZE; redHat.y = 16 * TILE_SIZE; redHat.dirX = 0; redHat.dirY = 0; redHat.nextDirX = 0; redHat.nextDirY = 0;
+        wolves[0] = { x: 1 * TILE_SIZE, y: 1 * TILE_SIZE, dirX: 1, dirY: 0, scared: (currentStage===3||hasGun), dead: false };
+        wolves[1] = { x: 18 * TILE_SIZE, y: 1 * TILE_SIZE, dirX: -1, dirY: 0, scared: (currentStage===3||hasGun), dead: false };
+        wolves[2] = { x: 9 * TILE_SIZE, y: 14 * TILE_SIZE, dirX: 0, dirY: -1, scared: (currentStage===3||hasGun), dead: false };
+    }
+
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // 배경 그리드 렌더링
         for (let r = 0; r < ROWS; r++) {
             for (let c = 0; c < COLS; c++) {
                 let x = c * TILE_SIZE; let y = r * TILE_SIZE;
@@ -310,7 +296,6 @@ pacman_js = """
             }
         }
 
-        // 아이템 월드 드롭 마커 시각화
         if (currentStage === 1 && gearSpawned && !hasAquaGear) {
             ctx.font = '16px Arial'; ctx.fillText('🤿', gearPos.col*TILE_SIZE+3, gearPos.row*TILE_SIZE+18);
         }
@@ -321,11 +306,9 @@ pacman_js = """
             ctx.font = '16px Arial'; ctx.fillText('🔑', keyPos.col*TILE_SIZE+3, keyPos.row*TILE_SIZE+18);
         }
 
-        // 주인공 캐릭터 그래픽스 그리기
         let px = redHat.x + TILE_SIZE/2; let py = redHat.y + TILE_SIZE/2;
         ctx.save();
         ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI*2);
-        // 총을 가졌거나 무적인 상태면 찬란한 황금빛 오라 렌더링
         ctx.fillStyle = (hasGun || currentStage === 3) ? '#facc15' : ((currentStage === 2) ? '#06b6d4' : '#dc2626');
         ctx.fill();
         ctx.beginPath(); ctx.arc(px, py+2, 5, 0, Math.PI*2); ctx.fillStyle = '#fed7aa'; ctx.fill();
@@ -333,7 +316,6 @@ pacman_js = """
         if(hasGun) { ctx.font = '10px Arial'; ctx.fillText('🔫', px-9, py+5); }
         ctx.restore();
 
-        // 크리처 에너미 객체 드로잉
         wolves.forEach(w => {
             if (w.dead) return;
             let wx = w.x + TILE_SIZE/2; let wy = w.y + TILE_SIZE/2;
@@ -350,7 +332,6 @@ pacman_js = """
             ctx.restore();
         });
 
-        // 엔딩 스크린 오버레이 화면 정의
         if (gameOver) {
             ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0,0,canvas.width,canvas.height);
             ctx.fillStyle = '#ef4444'; ctx.font = 'bold 30px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2);
