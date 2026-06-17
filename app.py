@@ -5,9 +5,9 @@ st.set_page_config(page_title="빨간 모자의 숲속 모험", page_icon="🌲"
 
 st.title("🌲 빨간 모자와 숲속의 미로 대모험 🪓")
 st.markdown("""
-**🎮 플레이어 피드백 반영 최종 업데이트:**
-* **도끼 장착 연출:** 도끼(🪓)를 먹으면 캐릭터가 즉시 도끼를 손에 쥐며 늑대를 사냥할 수 있게 됩니다!
-* **우물 입수 버그 완벽 해결:** 버섯을 모두 먹고 수영장비를 얻은 상태라면, 우물(🟦)에 살짝만 닿아도 딜레이 없이 100% 바다로 입수됩니다.
+**🎮 광속 스피드런 벨런스 패치 완로:**
+* **폭풍 스피드 (Speed 5.5):** 플레이어의 속도가 극대화되었습니다! 맵 전체를 초고속으로 누비세요.
+* **스마트 코너링 보정:** 속도가 너무 빨라 벽에 걸리지 않도록 코너 부근에서 부드럽게 미끄러져 들어가는 자석 시스템을 강화했습니다.
 """)
 
 game_js = """
@@ -85,11 +85,12 @@ game_js = """
     let forestKills = 0; let waterKills = 0;
     let hasAquaGear = false; let gearSpawned = false;
     let hasGun = false; let hasKey = false; let keySpawned = false;
-    let hasAxe = false; // 도끼 장착 상태 변수
+    let hasAxe = false;
 
     let gearPos = {row: 12, col: 9}; let gunPos = {row: 10, col: 10}; let keyPos = {row: 10, col: 9};
 
-    let redHat = { x: 1 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: 4 };
+    // ⚡ 플레이어 속도를 초고속 5.5로 상향!
+    let redHat = { x: 1 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: 5.5 };
     let wolves = [];
     let scaredTimer = 0;
 
@@ -165,12 +166,15 @@ game_js = """
             }
         }
 
+        // 고속 이동 시 벽에 박히지 않도록 허용 오차(Magnet 범위)를 대폭 완화
         let remX = redHat.x % TILE_SIZE;
         let remY = redHat.y % TILE_SIZE;
 
         if (redHat.nextDirX !== 0 || redHat.nextDirY !== 0) {
             if (redHat.nextDirX !== redHat.dirX || redHat.nextDirY !== redHat.dirY) {
-                if ((redHat.nextDirX !== 0 && remY === 0) || (redHat.nextDirY !== 0 && remX === 0)) {
+                // 초고속 이동 중에도 반격자(rem) 오차가 속도 이내라면 강제로 축을 맞춰서 부드럽게 흡입 처리
+                if ((redHat.nextDirX !== 0 && (remY <= redHat.speed || TILE_SIZE - remY <= redHat.speed)) || 
+                    (redHat.nextDirY !== 0 && (remX <= redHat.speed || TILE_SIZE - remX <= redHat.speed))) {
                     let checkX = Math.round(redHat.x / TILE_SIZE) * TILE_SIZE;
                     let checkY = Math.round(redHat.y / TILE_SIZE) * TILE_SIZE;
                     if (!checkWall(checkX + redHat.nextDirX * TILE_SIZE, checkY + redHat.nextDirY * TILE_SIZE)) {
@@ -192,8 +196,6 @@ game_js = """
             redHat.dirX = 0; redHat.dirY = 0;
         }
 
-        // 💡 [핵심 버그 수정] 박스 충돌 판정 기반의 우물 입수 시스템
-        // 격자가 어긋나 씹히는 현상을 원천 차단하기 위해 4개 모서리 범위를 직접 트래킹합니다.
         let leftCol = Math.floor(redHat.x / TILE_SIZE);
         let rightCol = Math.floor((redHat.x + TILE_SIZE - 1) / TILE_SIZE);
         let topRow = Math.floor(redHat.y / TILE_SIZE);
@@ -204,7 +206,6 @@ game_js = """
             {r: botRow, c: leftCol}, {r: botRow, c: rightCol}
         ];
 
-        // 아이템 및 이벤트 처리
         activeTiles.forEach(pt => {
             if (pt.r >= 0 && pt.r < ROWS && pt.c >= 0 && pt.c < COLS) {
                 if (grid[pt.r][pt.c] === 2 || grid[pt.r][pt.c] === 7) {
@@ -216,7 +217,7 @@ game_js = """
                     activeAxes.splice(axeIndex, 1);
                     if (!hasGun && currentStage === 1) { 
                         scaredTimer = 240; 
-                        hasAxe = true; // 🪓 도끼 장착 트리거 ON!
+                        hasAxe = true; 
                         wolves.forEach(w => w.scared = true); 
                     }
                 }
@@ -225,7 +226,6 @@ game_js = """
                     hasAquaGear = true; itemUI.innerHTML = "🎒 장비: 🤿 수영장비"; itemUI.style.background = "#2563eb";
                 }
 
-                // 🟦 [우물 무조건 입수 보장] 4번 타일에 플레이어 바디가 1픽셀이라도 겹치면 즉시 순간이동
                 if (currentStage === 1 && hasAquaGear && updateMushCount() === 0) {
                     if (forestMap[pt.r][pt.c] === 4) {
                         currentStage = 2; grid = JSON.parse(JSON.stringify(aquaMap));
@@ -251,7 +251,6 @@ game_js = """
             }
         });
 
-        // 늑대 AI 이동 처리 코드
         wolves.forEach(w => {
             if (w.dead) return;
             if (w.x % TILE_SIZE === 0 && w.y % TILE_SIZE === 0) {
@@ -277,7 +276,8 @@ game_js = """
                 } else { w.dirX = -w.dirX; w.dirY = -w.dirY; }
             }
 
-            let spd = 2.0; 
+            // 플레이어 속도가 압도적이므로 추격 난이도를 위해 늑대 속도도 살짝 상향 (2.5)
+            let spd = 2.5; 
             let nWpX = w.x + w.dirX * spd; let nWpY = w.y + w.dirY * spd;
             if (!checkWall(nWpX, nWpY)) { w.x = nWpX; w.y = nWpY; }
             else { w.x = Math.round(w.x/TILE_SIZE)*TILE_SIZE; w.y = Math.round(w.y/TILE_SIZE)*TILE_SIZE; w.dirX = -w.dirX; w.dirY = -w.dirY; }
@@ -369,9 +369,8 @@ game_js = """
         ctx.fill();
         ctx.beginPath(); ctx.arc(px, py+2, 5, 0, Math.PI*2); ctx.fillStyle = '#fed7aa'; ctx.fill();
         
-        // 💡 [비주얼 패치] 도끼 및 장비 장착 렌더링 실시간 동적 매핑
         if (hasAxe && currentStage === 1) { 
-            ctx.font = '12px Arial'; ctx.fillText('🪓', px - 11, py - 3); // 도끼를 들었을 때 연출
+            ctx.font = '12px Arial'; ctx.fillText('🪓', px - 11, py - 3); 
         } else if (hasAquaGear) { 
             ctx.font = '10px Arial'; ctx.fillText('🤿', px + 3, py - 3); 
         }
@@ -395,7 +394,7 @@ game_js = """
         if (gameWin) {
             ctx.fillStyle = 'rgba(15,23,42,0.95)'; ctx.fillRect(0,0,canvas.width,canvas.height);
             ctx.fillStyle = '#facc15'; ctx.font = 'bold 26px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('👑 HAPPY ENDING 👑', canvas.width/2, canvas.height/2 - 25);
-            ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('스피드 런 최종 성공!', canvas.width/2, canvas.height/2 + 20);
+            ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('초고속 스피드런 성공!', canvas.width/2, canvas.height/2 + 20);
         }
     }
 
