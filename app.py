@@ -5,10 +5,9 @@ st.set_page_config(page_title="빨간 모자의 숲속 모험", page_icon="🌲"
 
 st.title("🌲 빨간 모자와 숲속의 미로 대모험 🪓")
 st.markdown("""
-**🎮 긴급 버그 수정 완로:**
-* 화면이 갑자기 먹통이 되던 코드 오타를 수정했습니다! 이제 정지 없이 시원하게 잘 달립니다.
-* **조작법:** 방향키를 누르면 벽에 걸리지 않고 부드럽게 코너링이 됩니다. 
-* **1단계 탈출:** 버섯을 다 먹고 🤿장비를 얻은 뒤 파란색 우물 타일로 돌진하세요!
+**🎮 플레이어 피드백 반영 최종 업데이트:**
+* **도끼 장착 연출:** 도끼(🪓)를 먹으면 캐릭터가 즉시 도끼를 손에 쥐며 늑대를 사냥할 수 있게 됩니다!
+* **우물 입수 버그 완벽 해결:** 버섯을 모두 먹고 수영장비를 얻은 상태라면, 우물(🟦)에 살짝만 닿아도 딜레이 없이 100% 바다로 입수됩니다.
 """)
 
 game_js = """
@@ -86,10 +85,10 @@ game_js = """
     let forestKills = 0; let waterKills = 0;
     let hasAquaGear = false; let gearSpawned = false;
     let hasGun = false; let hasKey = false; let keySpawned = false;
+    let hasAxe = false; // 도끼 장착 상태 변수
 
     let gearPos = {row: 12, col: 9}; let gunPos = {row: 10, col: 10}; let keyPos = {row: 10, col: 9};
 
-    // ⚡ 고속 쾌적 스피드 (속도 4)
     let redHat = { x: 1 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: 4 };
     let wolves = [];
     let scaredTimer = 0;
@@ -153,7 +152,8 @@ game_js = """
         if (gameOver || gameWin) return;
 
         if (scaredTimer > 0 && !hasGun && currentStage !== 3) {
-            scaredTimer--; if (scaredTimer === 0) wolves.forEach(w => w.scared = false);
+            scaredTimer--; 
+            if (scaredTimer === 0) { wolves.forEach(w => w.scared = false); hasAxe = false; }
         }
 
         if (currentStage === 1) {
@@ -165,13 +165,11 @@ game_js = """
             }
         }
 
-        // 💡 [오타 완벽 수정 및 코너링 최적화]
         let remX = redHat.x % TILE_SIZE;
         let remY = redHat.y % TILE_SIZE;
 
         if (redHat.nextDirX !== 0 || redHat.nextDirY !== 0) {
             if (redHat.nextDirX !== redHat.dirX || redHat.nextDirY !== redHat.dirY) {
-                // 수평 이동 중 수직 꺾기 시도 시, 수평 격자에 맞춰졌는지 검사
                 if ((redHat.nextDirX !== 0 && remY === 0) || (redHat.nextDirY !== 0 && remX === 0)) {
                     let checkX = Math.round(redHat.x / TILE_SIZE) * TILE_SIZE;
                     let checkY = Math.round(redHat.y / TILE_SIZE) * TILE_SIZE;
@@ -183,7 +181,6 @@ game_js = """
             }
         }
 
-        // 앞으로 이동 전개
         let nextX = redHat.x + redHat.dirX * redHat.speed;
         let nextY = redHat.y + redHat.dirY * redHat.speed;
         
@@ -195,50 +192,66 @@ game_js = """
             redHat.dirX = 0; redHat.dirY = 0;
         }
 
-        let currCol = Math.floor((redHat.x + TILE_SIZE/2) / TILE_SIZE);
-        let currRow = Math.floor((redHat.y + TILE_SIZE/2) / TILE_SIZE);
+        // 💡 [핵심 버그 수정] 박스 충돌 판정 기반의 우물 입수 시스템
+        // 격자가 어긋나 씹히는 현상을 원천 차단하기 위해 4개 모서리 범위를 직접 트래킹합니다.
+        let leftCol = Math.floor(redHat.x / TILE_SIZE);
+        let rightCol = Math.floor((redHat.x + TILE_SIZE - 1) / TILE_SIZE);
+        let topRow = Math.floor(redHat.y / TILE_SIZE);
+        let botRow = Math.floor((redHat.y + TILE_SIZE - 1) / TILE_SIZE);
 
-        if (currCol >= 0 && currCol < COLS && currRow >= 0 && currRow < ROWS) {
-            if (grid[currRow][currCol] === 2 || grid[currRow][currCol] === 7) {
-                grid[currRow][currCol] = 0; updateMushCount();
-            }
-            
-            let axeIndex = activeAxes.findIndex(a => a.r === currRow && a.c === currCol);
-            if (axeIndex !== -1) {
-                activeAxes.splice(axeIndex, 1);
-                if (!hasGun && currentStage === 1) { scaredTimer = 240; wolves.forEach(w => w.scared = true); }
-            }
-            
-            if (currentStage === 1 && gearSpawned && !hasAquaGear && currRow === gearPos.row && currCol === gearPos.col) {
-                hasAquaGear = true; itemUI.innerHTML = "🎒 장비: 🤿 수영장비"; itemUI.style.background = "#2563eb";
-            }
+        let activeTiles = [
+            {r: topRow, c: leftCol}, {r: topRow, c: rightCol},
+            {r: botRow, c: leftCol}, {r: botRow, c: rightCol}
+        ];
 
-            // 🟦 우물 타일(4번)에 중심점이 들어가면 즉시 안전하게 다음 판으로 워프 처리
-            if (currentStage === 1 && hasAquaGear && updateMushCount() === 0) {
-                if (forestMap[currRow][currCol] === 4) {
-                    currentStage = 2; grid = JSON.parse(JSON.stringify(aquaMap));
-                    canvas.style.background = "#07243a";
-                    stageUI.innerHTML = "🗺️ 2단계 푸른 심해"; stageUI.style.background = "#0284c7";
-                    killUI.innerHTML = "🦈 수중 처치: 0/3"; updateMushCount(); resetPositions(); return;
+        // 아이템 및 이벤트 처리
+        activeTiles.forEach(pt => {
+            if (pt.r >= 0 && pt.r < ROWS && pt.c >= 0 && pt.c < COLS) {
+                if (grid[pt.r][pt.c] === 2 || grid[pt.r][pt.c] === 7) {
+                    grid[pt.r][pt.c] = 0; updateMushCount();
                 }
-            }
+                
+                let axeIndex = activeAxes.findIndex(a => a.r === pt.r && a.c === pt.c);
+                if (axeIndex !== -1) {
+                    activeAxes.splice(axeIndex, 1);
+                    if (!hasGun && currentStage === 1) { 
+                        scaredTimer = 240; 
+                        hasAxe = true; // 🪓 도끼 장착 트리거 ON!
+                        wolves.forEach(w => w.scared = true); 
+                    }
+                }
+                
+                if (currentStage === 1 && gearSpawned && !hasAquaGear && pt.r === gearPos.row && pt.c === gearPos.col) {
+                    hasAquaGear = true; itemUI.innerHTML = "🎒 장비: 🤿 수영장비"; itemUI.style.background = "#2563eb";
+                }
 
-            if (currentStage === 2 && !hasGun && currRow === gunPos.row && currCol === gunPos.col) {
-                hasGun = true; wolves.forEach(w => w.scared = true);
-                itemUI.innerHTML = "🎒 장비: 🤿 + 🔫 사냥꾼의 총"; itemUI.style.background = "#dc2626";
-            }
+                // 🟦 [우물 무조건 입수 보장] 4번 타일에 플레이어 바디가 1픽셀이라도 겹치면 즉시 순간이동
+                if (currentStage === 1 && hasAquaGear && updateMushCount() === 0) {
+                    if (forestMap[pt.r][pt.c] === 4) {
+                        currentStage = 2; grid = JSON.parse(JSON.stringify(aquaMap));
+                        canvas.style.background = "#07243a";
+                        stageUI.innerHTML = "🗺️ 2단계 푸른 심해"; stageUI.style.background = "#0284c7";
+                        killUI.innerHTML = "🦈 수중 처치: 0/3"; updateMushCount(); resetPositions(); return;
+                    }
+                }
 
-            if (currentStage === 2 && keySpawned && !hasKey && currRow === keyPos.row && currCol === keyPos.col) {
-                hasKey = true; currentStage = 3; grid = JSON.parse(JSON.stringify(forestMap)); 
-                canvas.style.background = "#0f291e";
-                stageUI.innerHTML = "🗺️ 3단계 최종전"; stageUI.style.background = "#b45309";
-                killUI.innerHTML = "🐺 남은 늑대 소탕!"; resetPositions();
-                wolves.forEach(w => { w.dead = false; w.scared = true; }); return;
-            }
-            if (currentStage === 3 && forestMap[currRow][currCol] === 5) { if (wolves.every(w => w.dead)) gameWin = true; }
-        }
+                if (currentStage === 2 && !hasGun && pt.r === gunPos.row && pt.c === gunPos.col) {
+                    hasGun = true; wolves.forEach(w => w.scared = true);
+                    itemUI.innerHTML = "🎒 장비: 🤿 + 🔫 사냥꾼의 총"; itemUI.style.background = "#dc2626";
+                }
 
-        // 몬스터 루프 제어
+                if (currentStage === 2 && keySpawned && !hasKey && pt.r === keyPos.row && pt.c === keyPos.col) {
+                    hasKey = true; currentStage = 3; grid = JSON.parse(JSON.stringify(forestMap)); 
+                    canvas.style.background = "#0f291e";
+                    stageUI.innerHTML = "🗺️ 3단계 최종전"; stageUI.style.background = "#b45309";
+                    killUI.innerHTML = "🐺 남은 늑대 소탕!"; resetPositions();
+                    wolves.forEach(w => { w.dead = false; w.scared = true; }); return;
+                }
+                if (currentStage === 3 && forestMap[pt.r][pt.c] === 5) { if (wolves.every(w => w.dead)) gameWin = true; }
+            }
+        });
+
+        // 늑대 AI 이동 처리 코드
         wolves.forEach(w => {
             if (w.dead) return;
             if (w.x % TILE_SIZE === 0 && w.y % TILE_SIZE === 0) {
@@ -355,8 +368,14 @@ game_js = """
         ctx.fillStyle = (hasGun || currentStage === 3) ? '#facc15' : (scaredTimer > 0 ? '#fb923c' : '#dc2626');
         ctx.fill();
         ctx.beginPath(); ctx.arc(px, py+2, 5, 0, Math.PI*2); ctx.fillStyle = '#fed7aa'; ctx.fill();
-        if(hasAquaGear) { ctx.font = '10px Arial'; ctx.fillText('🤿', px+3, py-3); }
-        if(hasGun) { ctx.font = '10px Arial'; ctx.fillText('🔫', px-9, py+5); }
+        
+        // 💡 [비주얼 패치] 도끼 및 장비 장착 렌더링 실시간 동적 매핑
+        if (hasAxe && currentStage === 1) { 
+            ctx.font = '12px Arial'; ctx.fillText('🪓', px - 11, py - 3); // 도끼를 들었을 때 연출
+        } else if (hasAquaGear) { 
+            ctx.font = '10px Arial'; ctx.fillText('🤿', px + 3, py - 3); 
+        }
+        if (hasGun) { ctx.font = '10px Arial'; ctx.fillText('🔫', px - 9, py + 5); }
         ctx.restore();
 
         wolves.forEach(w => {
@@ -376,7 +395,7 @@ game_js = """
         if (gameWin) {
             ctx.fillStyle = 'rgba(15,23,42,0.95)'; ctx.fillRect(0,0,canvas.width,canvas.height);
             ctx.fillStyle = '#facc15'; ctx.font = 'bold 26px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('👑 HAPPY ENDING 👑', canvas.width/2, canvas.height/2 - 25);
-            ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('초고속 스피드 런 컴플리트!', canvas.width/2, canvas.height/2 + 20);
+            ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.fillText('스피드 런 최종 성공!', canvas.width/2, canvas.height/2 + 20);
         }
     }
 
@@ -384,7 +403,7 @@ game_js = """
 
     resetBtn.addEventListener('click', () => {
         currentStage = 1; gameOver = false; gameWin = false; forestKills = 0; waterKills = 0;
-        hasAquaGear = false; gearSpawned = false; hasGun = false; hasKey = false; keySpawned = false; scaredTimer = 0; axeSpawnTimer = 0;
+        hasAquaGear = false; gearSpawned = false; hasGun = false; hasKey = false; keySpawned = false; hasAxe = false; scaredTimer = 0; axeSpawnTimer = 0;
         canvas.style.background = "#0f291e";
         stageUI.innerHTML = "🗺️ 1단계 숲속 미로"; stageUI.style.background = "#1e293b";
         killUI.innerHTML = "🐺 늑대 사냥: 0/3";
