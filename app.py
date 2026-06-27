@@ -5,22 +5,30 @@ st.set_page_config(page_title="빨간 모자의 숲속 모험", page_icon="🌲"
 
 st.title("🌲 빨간 모자와 숲속의 미로 대모험 🪓")
 st.markdown("""
-**⚙️ 기능 업데이트 및 버그 수정 완료:**
-* **🛡️ 무적 모드 선택 버튼:** 이제 상단 버튼을 눌러 실시간으로 무적(God) 모드를 켜고 끌 수 있습니다.
-* **🔑 열쇠 습득 버그 완벽 수정:** 2단계에서 상어 3마리를 잡고 나오는 열쇠가 정상적으로 획득되며 3단계로 이동합니다!
+**⚙️ 실시간 환경 설정 추가:**
+* **🛡️ 무적 모드 토글:** 클릭 한 번으로 무적 상태를 켜고 끌 수 있습니다.
+* **🏃 실시간 속도 조절 슬라이더:** 조작이 너무 어렵다면 속도를 낮추고, 스피드런을 원하시면 최대 `7`까지 올려서 테스트해 보세요!
 """)
 
 game_js = """
 <div style="text-align: center; font-family: 'Malgun Gothic', sans-serif; color: white;">
-    <div style="display: flex; justify-content: space-between; align-items: center; max-width: 440px; margin: 0 auto 12px auto; flex-wrap: wrap; gap: 6px;">
-        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-            <div id="p-stage" style="padding: 5px 8px; background: #1e293b; color: #f1f5f9; border-radius: 6px; font-weight: bold; font-size: 12px;">🗺️ 1단계 숲속</div>
-            <div id="p-mush" style="padding: 5px 8px; background: #065f46; color: #a7f3d0; border-radius: 6px; font-weight: bold; font-size: 12px;">🍄 남은 버섯: 계산중</div>
-            <div id="p-kill" style="padding: 5px 8px; background: #7f1d1d; color: #fca5a5; border-radius: 6px; font-weight: bold; font-size: 12px;">🐺 사냥: 0/3</div>
+    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 440px; margin: 0 auto 12px auto; background: #1e293b; padding: 10px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
+            <div id="p-stage" style="padding: 5px 8px; background: #0f172a; color: #f1f5f9; border-radius: 6px; font-weight: bold; font-size: 11px;">🗺️ 1단계 숲속</div>
+            <div id="p-mush" style="padding: 5px 8px; background: #065f46; color: #a7f3d0; border-radius: 6px; font-weight: bold; font-size: 11px;">🍄 남은 버섯: 계산중</div>
+            <div id="p-kill" style="padding: 5px 8px; background: #7f1d1d; color: #fca5a5; border-radius: 6px; font-weight: bold; font-size: 11px;">🐺 사냥: 0/3</div>
         </div>
-        <div style="display: flex; gap: 6px;">
-            <button id="p-god" style="padding: 6px 12px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px;">🛡️ 무적 ON</button>
-            <button id="p-reset" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px;">🔄 리셋</button>
+        <hr style="border: 0; border-top: 1px solid #334155; margin: 4px 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 6px; background: #0f172a; padding: 4px 8px; border-radius: 6px;">
+                <span style="font-size: 11px; font-weight: bold; color: #cbd5e1; white-space: nowrap;">🏃 속도:</span>
+                <input type="range" id="p-speed" min="2.0" max="7.0" step="0.5" value="4.5" style="width: 80px; cursor: pointer;">
+                <span id="p-speed-val" style="font-size: 11px; font-weight: bold; color: #facc15; min-width: 20px;">4.5</span>
+            </div>
+            <div style="display: flex; gap: 4px;">
+                <button id="p-god" style="padding: 6px 10px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 11px; white-space: nowrap;">🛡️ 무적 ON</button>
+                <button id="p-reset" style="padding: 6px 10px; background: #ef4444; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 11px; white-space: nowrap;">🔄 리셋</button>
+            </div>
         </div>
     </div>
     
@@ -32,10 +40,11 @@ game_js = """
     const stageUI = document.getElementById('p-stage'); const killUI = document.getElementById('p-kill');
     const mushUI = document.getElementById('p-mush'); const godBtn = document.getElementById('p-god'); 
     const resetBtn = document.getElementById('p-reset');
+    const speedInput = document.getElementById('p-speed'); const speedVal = document.getElementById('p-speed-val');
 
     const TILE_SIZE = 22; const COLS = 20; const ROWS = 20;
     
-    let isGodMode = true; // 기본값 무적 ON
+    let isGodMode = true;
 
     const forestMap = [
         [1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1],
@@ -93,7 +102,8 @@ game_js = """
 
     let gearPos = {row: 12, col: 9}; let gunPos = {row: 10, col: 12}; let keyPos = {row: 12, col: 11};
 
-    let redHat = { x: 1 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: 4.5 };
+    // 설정된 슬라이더 기본값 매칭
+    let redHat = { x: 1 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: parseFloat(speedInput.value) };
     let wolves = [];
     let scaredTimer = 0;
 
@@ -197,7 +207,6 @@ game_js = """
             redHat.dirX = 0; redHat.dirY = 0;
         }
 
-        // 플레이어 중심 좌표 기준 아이템 충돌 연산 처리 (버그 방지)
         let pCenterCol = Math.floor((redHat.x + TILE_SIZE / 2) / TILE_SIZE);
         let pCenterRow = Math.floor((redHat.y + TILE_SIZE / 2) / TILE_SIZE);
 
@@ -226,7 +235,6 @@ game_js = """
                 hasGun = true; wolves.forEach(w => w.scared = true);
             }
 
-            // ⭐ [열쇠 습득 버그 수정 완료] 중심점 좌표 매칭 방식으로 확실하게 열쇠 획득 후 3단계 이동
             if (currentStage === 2 && keySpawned && !hasKey && pCenterRow === keyPos.row && pCenterCol === keyPos.col) {
                 hasKey = true; currentStage = 3; grid = JSON.parse(JSON.stringify(forestMap)); 
                 canvas.style.background = "#0f291e";
@@ -266,7 +274,6 @@ game_js = """
             if (!checkWall(nWpX, nWpY)) { w.x = nWpX; w.y = nWpY; }
             else { w.x = Math.round(w.x/TILE_SIZE)*TILE_SIZE; w.y = Math.round(w.y/TILE_SIZE)*TILE_SIZE; w.dirX = -w.dirX; w.dirY = -w.dirY; }
 
-            // 🛡️ 전투/피격 판정
             if (Math.abs(redHat.x - w.x) < TILE_SIZE * 0.7 && Math.abs(redHat.y - w.y) < TILE_SIZE * 0.7) {
                 if (w.scared || hasGun || currentStage === 3 || isGodMode) { 
                     w.dead = true; w.x = -999; w.y = -999; 
@@ -374,7 +381,13 @@ game_js = """
 
     function loop() { update(); draw(); requestAnimationFrame(loop); }
 
-    // 🛡️ 무적 모드 토글 버튼 이벤트
+    // ⚡ 실시간 속도 조절 이벤트 바인딩
+    speedInput.addEventListener('input', (e) => {
+        let val = parseFloat(e.target.value);
+        redHat.speed = val;
+        speedVal.innerHTML = val.toFixed(1);
+    });
+
     godBtn.addEventListener('click', () => {
         isGodMode = !isGodMode;
         if(isGodMode) {
@@ -400,4 +413,4 @@ game_js = """
 </script>
 """
 
-components.html(game_js, height=520)
+components.html(game_js, height=540)
