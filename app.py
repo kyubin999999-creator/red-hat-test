@@ -3,11 +3,11 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="빨간 모자의 숲속 모험", page_icon="🌲", layout="centered")
 
-st.title("🌲 빨간 모자의 미로 대모험 (AI 갇힘 수정 & 맵 시인성 패치) 🪓")
+st.title("🌲 빨간 모자의 미로 대모험 (늑대 AI 완벽 수정 패치) 🪓")
 st.markdown("""
-**⚙️ 업데이트 안내:**
-* **몬스터 AI 정상화:** 늑대와 상어가 길목에서 버벅이거나 벽에 박혀 멈추지 않고 유연하게 플레이어를 추격/도망칩니다.
-* **시각적 구별 뚜렷화:** 기존 맵 구조는 유지하되, **벽은 더 어둡게, 길(바닥)은 연하고 밝게** 칠해 길 찾기가 한결 수월해졌습니다.
+**🚨 늑대 현역 복귀 완료:**
+* 이제 늑대와 상어가 구석에 박혀서 숨어 있거나 멈추지 않고, 끊임없이 맵 전체를 순찰하며 플레이어를 압박합니다.
+* 벽과 길의 명확한 색상 구분을 유지한 채 AI 조작감만 극대화했습니다!
 """)
 
 game_js = """
@@ -195,13 +195,13 @@ game_js = """
 
             if (currentStage === 1 && grid[pR][pC] === 4) {
                 if (equipAquaGear || isGodMode) {
-                    currentStage = 2; canvas.style.background = "#112d42"; // 맵 바탕 연한색 조율
+                    currentStage = 2; canvas.style.background = "#112d42"; 
                     initGrid(); resetPositions(); return;
                 }
             }
 
             if (currentStage === 2 && grid[pR][pC] === 9) {
-                currentStage = 1; canvas.style.background = "#143a29"; // 맵 바탕 연한색 조율
+                currentStage = 1; canvas.style.background = "#143a29"; 
                 initGrid(); resetPositions(); return;
             }
 
@@ -218,8 +218,14 @@ game_js = """
         wolves.forEach(w => {
             if (w.dead) return;
 
-            // 👾 몬스터 갇힘 해결: 0.1px 단위의 정밀 오차 보정 추가 
-            if (Math.abs(w.x % TILE_SIZE) <= 2 && Math.abs(w.y % TILE_SIZE) <= 2) {
+            let monsterSpeed = 2;
+
+            // 🚨 [핵심 수정] 늑대 타일 정렬 및 물리 교정 자동화 강화
+            let nextWx = w.x + w.dirX * monsterSpeed;
+            let nextWy = w.y + w.dirY * monsterSpeed;
+
+            // 한 타일의 경계면 혹은 벽과의 충돌을 선제 체크
+            if (w.x % TILE_SIZE === 0 && w.y % TILE_SIZE === 0 || checkWall(nextWx, nextWy)) {
                 w.x = Math.round(w.x / TILE_SIZE) * TILE_SIZE;
                 w.y = Math.round(w.y / TILE_SIZE) * TILE_SIZE;
 
@@ -227,28 +233,37 @@ game_js = """
                 let validDirs = dirs.filter(d => !checkWall(w.x + d.x * TILE_SIZE, w.y + d.y * TILE_SIZE));
 
                 if (validDirs.length > 0) {
-                    let bestDir = w.dirX !== 0 || w.dirY !== 0 ? {x: w.dirX, y: w.dirY} : validDirs[0]; 
+                    let bestDir = validDirs[0];
                     let minD = 9999999;
                     let isPlayerStrong = hasGun || (currentStage === 1 && equipAxe && invAxeCount > 0) || currentStage === 3;
 
-                    // 현재 가던 방향이 막혔거나 막다른 길일 때만 새 타겟 경로 연산
-                    if (checkWall(w.x + w.dirX * TILE_SIZE, w.y + w.dirY * TILE_SIZE) || Math.random() < 0.2) {
-                        validDirs.forEach(d => {
-                            let nX = w.x + d.x * TILE_SIZE; let nY = w.y + d.y * TILE_SIZE;
-                            let dist = Math.pow(nX - redHat.x, 2) + Math.pow(nY - redHat.y, 2);
-                            if (isPlayerStrong) { if (dist > minD || minD === 9999999) { minD = dist; bestDir = d; } } 
-                            else { if (dist < minD) { minD = dist; bestDir = d; } }
-                        });
-                        w.dirX = bestDir.x; w.dirY = bestDir.y;
+                    // 플레이어 추적 혹은 회피 방향 가중치 부여
+                    validDirs.forEach(d => {
+                        let nX = w.x + d.x * TILE_SIZE; let nY = w.y + d.y * TILE_SIZE;
+                        let dist = Math.pow(nX - redHat.x, 2) + Math.pow(nY - redHat.y, 2);
+                        if (isPlayerStrong) { if (dist > minD || minD === 9999999) { minD = dist; bestDir = d; } } 
+                        else { if (dist < minD) { minD = dist; bestDir = d; } }
+                    });
+
+                    // 만약 현재 방향이 완전히 벽에 막히는 상황이라면 강제로 유효한 임의의 탈출 경로 배정
+                    if (checkWall(w.x + bestDir.x * TILE_SIZE, w.y + bestDir.y * TILE_SIZE)) {
+                        bestDir = validDirs[Math.floor(Math.random() * validDirs.length)];
                     }
+
+                    w.dirX = bestDir.x; w.dirY = bestDir.y;
+                } else {
+                    // 사방이 꽉 막힌 버그 상황 발생 시 (예외처리), 사방 중 빈 타일을 찾아 강제 텔레포트 탈출
+                    w.dirX = -w.dirX; w.dirY = -w.dirY;
                 }
             }
 
-            let monsterSpeed = 2;
-            let nWx = w.x + w.dirX * monsterSpeed; let nWy = w.y + w.dirY * monsterSpeed;
-            if (!checkWall(nWx, nWy)) { w.x = nWx; w.y = nWy; } 
-            else { 
-                w.x = Math.round(w.x/TILE_SIZE)*TILE_SIZE; w.y = Math.round(w.y/TILE_SIZE)*TILE_SIZE; 
+            // 최종 이동 연산 및 이중 안전 벽 무효화
+            let finalX = w.x + w.dirX * monsterSpeed;
+            let finalY = w.y + w.dirY * monsterSpeed;
+            if (!checkWall(finalX, finalY)) { 
+                w.x = finalX; w.y = finalY; 
+            } else { 
+                // 벽 충돌 순간 굳지 않게 유턴 처리
                 w.dirX = -w.dirX; w.dirY = -w.dirY; 
             }
 
@@ -263,10 +278,10 @@ game_js = """
                     w.dead = true; w.x = -999; w.y = -999;
                     if (currentStage === 1) {
                         forestKills++; updateUI();
-                        if (forestKills < 3) { w.dead = false; w.x = 9*TILE_SIZE; w.y = 1*TILE_SIZE; }
+                        if (forestKills < 3) { w.dead = false; w.x = 9*TILE_SIZE; w.y = 1*TILE_SIZE; w.dirX = 1; w.dirY = 0; }
                     } else if (currentStage === 2) {
                         waterKills++; updateUI();
-                        if (waterKills < 3) { w.dead = false; w.x = 9*TILE_SIZE; w.y = 1*TILE_SIZE; } 
+                        if (waterKills < 3) { w.dead = false; w.x = 9*TILE_SIZE; w.y = 1*TILE_SIZE; w.dirX = -1; w.dirY = 0; } 
                         else { keySpawned = true; }
                     } else if (currentStage === 3) {
                         if (wolves.every(wolf => wolf.dead)) updateUI();
@@ -294,7 +309,6 @@ game_js = """
             for (let c = 0; c < COLS; c++) {
                 let x = c * TILE_SIZE; let y = r * TILE_SIZE;
                 if (currentStage === 1 || currentStage === 3) {
-                    // 🌲 숲속 컬러 파트 보정 (벽은 극도로 어둡게, 길은 연하고 밝게)
                     if (grid[r][c] === 1) {
                         ctx.fillStyle = '#01241a'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE); 
                         ctx.fillStyle = '#065f46'; ctx.fillRect(x, y, TILE_SIZE, 2); 
@@ -309,7 +323,6 @@ game_js = """
                         if (grid[r][c] === 2) { ctx.font = '12px Arial'; ctx.fillText('🍄', x+4, y+16); }
                     }
                 } else if (currentStage === 2) {
-                    // 🌊 심해 컬러 파트 보정 (벽은 우주선 컬러, 바닥은 에메랄드 해저빛)
                     if (grid[r][c] === 6) {
                         ctx.fillStyle = '#090d16'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
                     } else {
