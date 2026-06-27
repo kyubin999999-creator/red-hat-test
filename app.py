@@ -3,18 +3,16 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="빨간 모자의 숲속 모험", page_icon="🌲", layout="centered")
 
-st.title("🌲 빨간 모자의 미로 대모험 (인벤토리 단축키 패치) 🪓")
+st.title("🌲 빨간 모자의 미로 대모험 (화면 깨짐/짤림 수정) 🪓")
 st.markdown("""
-**⌨️ 장비 단축키 조작 가이드:**
-* **상점 가격 인상:** 🤿 수영장비 (버섯 40개) | 🪓 무기도끼 (버섯 20개)
-* **단축키 `1` :** 도끼 장착 / 해제 (늑대 처치 시 1개씩 소모!)
-* **단축키 `2` :** 수영 장비 장착 / 해제 (장착 상태여야 우물 진입 가능)
-* *팁: 아이템을 구매한 뒤 게임 화면(캔버스)을 한 번 클릭하고 숫자 키를 누르세요!*
+**⚙️ 레이아웃 최적화 완료:**
+* HTML 컴포넌트 프레임의 크기를 확장하여 가로 상점 UI와 하단 영역이 완벽하게 표시됩니다.
+* 게임 창 바깥이 짤린다면 브라우저 창을 키우거나 `Ctrl` + `-` 로 화면을 조금 축소해 보세요!
 """)
 
 game_js = """
-<div style="text-align: center; font-family: 'Malgun Gothic', sans-serif; color: white;">
-    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 560px; margin: 0 auto 12px auto; background: #1e293b; padding: 10px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+<div style="text-align: center; font-family: 'Malgun Gothic', sans-serif; color: white; width: 570px; margin: 0 auto;">
+    <div style="display: flex; flex-direction: column; gap: 8px; width: 560px; margin: 0 auto 12px auto; background: #1e293b; padding: 10px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); box-sizing: border-box;">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
             <div id="p-stage" style="padding: 5px 8px; background: #0f172a; color: #f1f5f9; border-radius: 6px; font-weight: bold; font-size: 11px;">🗺️ 1단계 숲속</div>
             <div id="p-mush" style="padding: 5px 8px; background: #d97706; color: white; border-radius: 6px; font-weight: bold; font-size: 11px;">🍄 보유 버섯: 0개</div>
@@ -35,7 +33,7 @@ game_js = """
         </div>
     </div>
     
-    <canvas id="pacmanCanvas" width="560" height="440" style="border-radius: 16px; box-shadow: 0 12px 30px rgba(0,0,0,0.7); background: #0f291e; border: 4px solid #451a03; outline: none;" tabindex="0"></canvas>
+    <canvas id="pacmanCanvas" width="560" height="440" style="border-radius: 16px; box-shadow: 0 12px 30px rgba(0,0,0,0.7); background: #0f291e; border: 4px solid #451a03; outline: none; display: block; margin: 0 auto;" tabindex="0"></canvas>
 </div>
 
 <script>
@@ -55,11 +53,8 @@ game_js = """
     let forestKills = 0; let waterKills = 0;
     let hasGun = false; let hasKey = false; let keySpawned = false;
 
-    // 🎒 인벤토리 상태 변수 (보유 여부 및 수량)
     let invAquaGear = false; 
-    let invAxeCount = 0;      // 도끼는 산 만큼 쌓임
-
-    // ⚡ 현재 장착 여부 상태 (1, 2번키로 토글)
+    let invAxeCount = 0;      
     let equipAquaGear = false;
     let equipAxe = false;
 
@@ -127,11 +122,9 @@ game_js = """
 
     function updateUI() {
         mushUI.innerHTML = `🍄 보유 버섯: ${myMushrooms}개`;
-        
-        // 상단 인벤토리 문자열 조합 (장착 상태 강조 표시)
         let items = [];
-        if (invAquaGear) items.push(equipAquaGear ? "▶🤿수영장비(장착)◀" : "🤿수영장비");
-        if (invAxeCount > 0) items.push(equipAxe ? `▶🪓도끼x${invAxeCount}(장착)◀` : `🪓도끼x${invAxeCount}`);
+        if (invAquaGear) items.push(equipAquaGear ? "▶🤿수영(ON)◀" : "🤿수영장비");
+        if (invAxeCount > 0) items.push(equipAxe ? `▶🪓도끼x${invAxeCount}(ON)◀` : `🪓도끼x${invAxeCount}`);
         if (hasGun) items.push("🔫총");
         if (hasKey) items.push("🔑열쇠");
         
@@ -151,25 +144,13 @@ game_js = """
     window.addEventListener('keydown', e => { if([37, 38, 39, 40, 49, 50].indexOf(e.keyCode) > -1) { e.preventDefault(); canvas.focus(); } }, {passive: false});
     
     canvas.addEventListener('keydown', e => {
-        // 방향키 조작
         if(e.keyCode === 37) { redHat.nextDirX = -1; redHat.nextDirY = 0; }
         if(e.keyCode === 39) { redHat.nextDirX = 1; redHat.nextDirY = 0; }
         if(e.keyCode === 38) { redHat.nextDirX = 0; redHat.nextDirY = -1; }
         if(e.keyCode === 40) { redHat.nextDirX = 0; redHat.nextDirY = 1; }
         
-        // ⌨️ 숫자 단축키 장착/해제 시스템 패치
-        if(e.keyCode === 49) { // '1' 키 : 도끼 토글
-            if (invAxeCount > 0) {
-                equipAxe = !equipAxe;
-                updateUI();
-            }
-        }
-        if(e.keyCode === 50) { // '2' 키 : 수영장비 토글
-            if (invAquaGear) {
-                equipAquaGear = !equipAquaGear;
-                updateUI();
-            }
-        }
+        if(e.keyCode === 49) { if (invAxeCount > 0) { equipAxe = !equipAxe; updateUI(); } }
+        if(e.keyCode === 50) { if (invAquaGear) { equipAquaGear = !equipAquaGear; updateUI(); } }
     });
 
     function checkWall(x, y) {
@@ -212,7 +193,6 @@ game_js = """
             if (grid[pR][pC] === 2) { grid[pR][pC] = 0; myMushrooms++; updateUI(); spawnMushroomLater(pR, pC); }
             if (grid[pR][pC] === 7) { grid[pR][pC] = 0; }
 
-            // 1단계 -> 2단계 이동 (수영장비 '장착' 상태여야 가능)
             if (currentStage === 1 && grid[pR][pC] === 4) {
                 if (equipAquaGear || isGodMode) {
                     currentStage = 2; canvas.style.background = "#07243a";
@@ -262,16 +242,13 @@ game_js = """
             else { w.x = Math.round(w.x/TILE_SIZE)*TILE_SIZE; w.y = Math.round(w.y/TILE_SIZE)*TILE_SIZE; w.dirX = -w.dirX; w.dirY = -w.dirY; }
 
             if (Math.abs(redHat.x - w.x) < TILE_SIZE * 0.7 && Math.abs(redHat.y - w.y) < TILE_SIZE * 0.7) {
-                // 사냥 가능 판정 (도끼 장착 & 개수 소지 확인)
                 let canKill = isGodMode || hasGun || (currentStage === 1 && equipAxe && invAxeCount > 0) || currentStage === 3;
                 
                 if (canKill) {
-                    // 도끼 소모성 처리
                     if (!isGodMode && !hasGun && currentStage === 1 && equipAxe) {
                         invAxeCount--;
-                        if (invAxeCount <= 0) equipAxe = false; // 다 쓰면 자동 해제
+                        if (invAxeCount <= 0) equipAxe = false; 
                     }
-                    
                     w.dead = true; w.x = -999; w.y = -999;
                     if (currentStage === 1) {
                         forestKills++; updateUI();
@@ -287,7 +264,7 @@ game_js = """
                     gameOver = true;
                 }
             }
-        });
+         w.dead = w.dead; });
     }
 
     function resetPositions() {
@@ -337,7 +314,6 @@ game_js = """
         ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI*2); ctx.fillStyle = '#facc15'; ctx.fill();
         ctx.beginPath(); ctx.arc(px, py+2, 5, 0, Math.PI*2); ctx.fillStyle = '#ef4444'; ctx.fill();
 
-        // 현재 장착중인 장비 오버레이 표시
         if (equipAxe) { ctx.font = '10px Arial'; ctx.fillText('🪓', redHat.x-4, redHat.y+4); }
         if (equipAquaGear) { ctx.font = '10px Arial'; ctx.fillText('🤿', redHat.x+14, redHat.y+4); }
 
@@ -346,7 +322,6 @@ game_js = """
             ctx.font = '16px Arial'; ctx.fillText(currentStage === 2 ? '🦈' : '🐺', w.x+3, w.y+17);
         });
 
-        // 🛒 우측 상점 영역 UI 및 인상된 가격 반영
         ctx.fillStyle = '#1e293b'; ctx.fillRect(440, 0, 120, 440);
         ctx.fillStyle = '#334155'; ctx.fillRect(440, 0, 4, 440);
 
@@ -354,11 +329,11 @@ game_js = """
         
         ctx.fillStyle = invAquaGear ? '#475569' : '#0284c7'; ctx.fillRect(450, 60, 100, 45);
         ctx.fillStyle = '#ffffff'; ctx.font = '11px sans-serif'; ctx.fillText('🤿 수영장비', 462, 78);
-        ctx.fillStyle = '#facc15'; ctx.fillText('🍄 40개 필요', 466, 95); // 가격 인상 (10 -> 40)
+        ctx.fillStyle = '#facc15'; ctx.fillText('🍄 40개 필요', 466, 95);
 
         ctx.fillStyle = '#b45309'; ctx.fillRect(450, 120, 100, 45);
         ctx.fillStyle = '#ffffff'; ctx.font = '11px sans-serif'; ctx.fillText('🪓 무기도끼', 462, 138);
-        ctx.fillStyle = '#facc15'; ctx.fillText('🍄 20개 필요', 469, 155); // 가격 인상 (5 -> 20)
+        ctx.fillStyle = '#facc15'; ctx.fillText('🍄 20개 필요', 469, 155);
 
         if (gameOver) {
             ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -378,11 +353,9 @@ game_js = """
             let clickX = e.clientX - rect.left; let clickY = e.clientY - rect.top;
             
             if (clickX >= 450 && clickX <= 550) {
-                // 수영 장비 구매 (가격 40개로 조정 및 1개만 구매 가능)
                 if (clickY >= 60 && clickY <= 105 && !invAquaGear && myMushrooms >= 40) {
                     myMushrooms -= 40; invAquaGear = true; updateUI();
                 }
-                // 도끼 구매 (가격 20개로 조정 및 상한선 없이 무한 중첩 축적 가능)
                 if (clickY >= 120 && clickY <= 165 && myMushrooms >= 20) {
                     myMushrooms -= 20; invAxeCount++; updateUI();
                 }
@@ -407,4 +380,5 @@ game_js = """
 </script>
 """
 
-components.html(game_js, height=540, width=580)
+# 📐 Streamlit iframe의 내부 여백 크기를 기존보다 높여 잘림을 방지합니다.
+components.html(game_js, height=580, width=600)
