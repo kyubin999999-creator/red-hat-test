@@ -3,11 +3,11 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="빨간 모자의 숲속 모험", page_icon="🌲", layout="centered")
 
-st.title("🌲 빨간 모자의 미로 대모험 (화면 깨짐/짤림 수정) 🪓")
+st.title("🌲 빨간 모자의 미로 대모험 (AI 갇힘 수정 & 맵 시인성 패치) 🪓")
 st.markdown("""
-**⚙️ 레이아웃 최적화 완료:**
-* HTML 컴포넌트 프레임의 크기를 확장하여 가로 상점 UI와 하단 영역이 완벽하게 표시됩니다.
-* 게임 창 바깥이 짤린다면 브라우저 창을 키우거나 `Ctrl` + `-` 로 화면을 조금 축소해 보세요!
+**⚙️ 업데이트 안내:**
+* **몬스터 AI 정상화:** 늑대와 상어가 길목에서 버벅이거나 벽에 박혀 멈추지 않고 유연하게 플레이어를 추격/도망칩니다.
+* **시각적 구별 뚜렷화:** 기존 맵 구조는 유지하되, **벽은 더 어둡게, 길(바닥)은 연하고 밝게** 칠해 길 찾기가 한결 수월해졌습니다.
 """)
 
 game_js = """
@@ -33,7 +33,7 @@ game_js = """
         </div>
     </div>
     
-    <canvas id="pacmanCanvas" width="560" height="440" style="border-radius: 16px; box-shadow: 0 12px 30px rgba(0,0,0,0.7); background: #0f291e; border: 4px solid #451a03; outline: none; display: block; margin: 0 auto;" tabindex="0"></canvas>
+    <canvas id="pacmanCanvas" width="560" height="440" style="border-radius: 16px; box-shadow: 0 12px 30px rgba(0,0,0,0.7); background: #143a29; border: 4px solid #451a03; outline: none; display: block; margin: 0 auto;" tabindex="0"></canvas>
 </div>
 
 <script>
@@ -195,20 +195,20 @@ game_js = """
 
             if (currentStage === 1 && grid[pR][pC] === 4) {
                 if (equipAquaGear || isGodMode) {
-                    currentStage = 2; canvas.style.background = "#07243a";
+                    currentStage = 2; canvas.style.background = "#112d42"; // 맵 바탕 연한색 조율
                     initGrid(); resetPositions(); return;
                 }
             }
 
             if (currentStage === 2 && grid[pR][pC] === 9) {
-                currentStage = 1; canvas.style.background = "#0f291e";
+                currentStage = 1; canvas.style.background = "#143a29"; // 맵 바탕 연한색 조율
                 initGrid(); resetPositions(); return;
             }
 
             if (currentStage === 2 && !hasGun && pR === gunPos.row && pC === gunPos.col) { hasGun = true; updateUI(); }
 
             if (currentStage === 2 && keySpawned && !hasKey && pR === keyPos.row && pC === keyPos.col) {
-                hasKey = true; currentStage = 3; canvas.style.background = "#0f291e";
+                hasKey = true; currentStage = 3; canvas.style.background = "#143a29";
                 initGrid(); resetPositions(); return;
             }
 
@@ -218,28 +218,39 @@ game_js = """
         wolves.forEach(w => {
             if (w.dead) return;
 
-            if (w.x % TILE_SIZE === 0 && w.y % TILE_SIZE === 0) {
+            // 👾 몬스터 갇힘 해결: 0.1px 단위의 정밀 오차 보정 추가 
+            if (Math.abs(w.x % TILE_SIZE) <= 2 && Math.abs(w.y % TILE_SIZE) <= 2) {
+                w.x = Math.round(w.x / TILE_SIZE) * TILE_SIZE;
+                w.y = Math.round(w.y / TILE_SIZE) * TILE_SIZE;
+
                 let dirs = [{x:1, y:0}, {x:-1, y:0}, {x:0, y:1}, {x:0, y:-1}];
                 let validDirs = dirs.filter(d => !checkWall(w.x + d.x * TILE_SIZE, w.y + d.y * TILE_SIZE));
 
                 if (validDirs.length > 0) {
-                    let bestDir = validDirs[0]; let minD = 9999999;
+                    let bestDir = w.dirX !== 0 || w.dirY !== 0 ? {x: w.dirX, y: w.dirY} : validDirs[0]; 
+                    let minD = 9999999;
                     let isPlayerStrong = hasGun || (currentStage === 1 && equipAxe && invAxeCount > 0) || currentStage === 3;
 
-                    validDirs.forEach(d => {
-                        let nX = w.x + d.x * TILE_SIZE; let nY = w.y + d.y * TILE_SIZE;
-                        let dist = Math.pow(nX - redHat.x, 2) + Math.pow(nY - redHat.y, 2);
-                        if (isPlayerStrong) { if (dist > minD || minD === 9999999) { minD = dist; bestDir = d; } } 
-                        else { if (dist < minD) { minD = dist; bestDir = d; } }
-                    });
-                    w.dirX = bestDir.x; w.dirY = bestDir.y;
+                    // 현재 가던 방향이 막혔거나 막다른 길일 때만 새 타겟 경로 연산
+                    if (checkWall(w.x + w.dirX * TILE_SIZE, w.y + w.dirY * TILE_SIZE) || Math.random() < 0.2) {
+                        validDirs.forEach(d => {
+                            let nX = w.x + d.x * TILE_SIZE; let nY = w.y + d.y * TILE_SIZE;
+                            let dist = Math.pow(nX - redHat.x, 2) + Math.pow(nY - redHat.y, 2);
+                            if (isPlayerStrong) { if (dist > minD || minD === 9999999) { minD = dist; bestDir = d; } } 
+                            else { if (dist < minD) { minD = dist; bestDir = d; } }
+                        });
+                        w.dirX = bestDir.x; w.dirY = bestDir.y;
+                    }
                 }
             }
 
             let monsterSpeed = 2;
             let nWx = w.x + w.dirX * monsterSpeed; let nWy = w.y + w.dirY * monsterSpeed;
             if (!checkWall(nWx, nWy)) { w.x = nWx; w.y = nWy; } 
-            else { w.x = Math.round(w.x/TILE_SIZE)*TILE_SIZE; w.y = Math.round(w.y/TILE_SIZE)*TILE_SIZE; w.dirX = -w.dirX; w.dirY = -w.dirY; }
+            else { 
+                w.x = Math.round(w.x/TILE_SIZE)*TILE_SIZE; w.y = Math.round(w.y/TILE_SIZE)*TILE_SIZE; 
+                w.dirX = -w.dirX; w.dirY = -w.dirY; 
+            }
 
             if (Math.abs(redHat.x - w.x) < TILE_SIZE * 0.7 && Math.abs(redHat.y - w.y) < TILE_SIZE * 0.7) {
                 let canKill = isGodMode || hasGun || (currentStage === 1 && equipAxe && invAxeCount > 0) || currentStage === 3;
@@ -264,7 +275,7 @@ game_js = """
                     gameOver = true;
                 }
             }
-         w.dead = w.dead; });
+        });
     }
 
     function resetPositions() {
@@ -283,23 +294,31 @@ game_js = """
             for (let c = 0; c < COLS; c++) {
                 let x = c * TILE_SIZE; let y = r * TILE_SIZE;
                 if (currentStage === 1 || currentStage === 3) {
+                    // 🌲 숲속 컬러 파트 보정 (벽은 극도로 어둡게, 길은 연하고 밝게)
                     if (grid[r][c] === 1) {
-                        ctx.fillStyle = '#022c22'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-                        ctx.fillStyle = '#10b981'; ctx.fillRect(x, y, TILE_SIZE, 2);
-                    } else if (grid[r][c] === 4) {
-                        ctx.fillStyle = '#1d4ed8'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-                        ctx.fillStyle = 'white'; ctx.font = 'bold 9px sans-serif'; ctx.fillText('우물', x+2, y+14);
-                    } else if (grid[r][c] === 5) {
-                        ctx.font = '15px Arial'; ctx.fillText('🏡', x+3, y+16);
+                        ctx.fillStyle = '#01241a'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE); 
+                        ctx.fillStyle = '#065f46'; ctx.fillRect(x, y, TILE_SIZE, 2); 
+                    } else {
+                        ctx.fillStyle = '#143a29'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                        if (grid[r][c] === 4) {
+                            ctx.fillStyle = '#1d4ed8'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                            ctx.fillStyle = 'white'; ctx.font = 'bold 9px sans-serif'; ctx.fillText('우물', x+2, y+14);
+                        } else if (grid[r][c] === 5) {
+                            ctx.font = '15px Arial'; ctx.fillText('🏡', x+3, y+16);
+                        }
+                        if (grid[r][c] === 2) { ctx.font = '12px Arial'; ctx.fillText('🍄', x+4, y+16); }
                     }
-                    if (grid[r][c] === 2) { ctx.font = '12px Arial'; ctx.fillText('🍄', x+4, y+16); }
                 } else if (currentStage === 2) {
+                    // 🌊 심해 컬러 파트 보정 (벽은 우주선 컬러, 바닥은 에메랄드 해저빛)
                     if (grid[r][c] === 6) {
-                        ctx.fillStyle = '#0f172a'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-                    } else if (grid[r][c] === 7) {
-                        ctx.font = '12px Arial'; ctx.fillText('🌿', x+4, y+16);
-                    } else if (grid[r][c] === 9) {
-                        ctx.font = '16px Arial'; ctx.fillText('🌀', x+2, y+17);
+                        ctx.fillStyle = '#090d16'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    } else {
+                        ctx.fillStyle = '#112d42'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                        if (grid[r][c] === 7) {
+                            ctx.font = '12px Arial'; ctx.fillText('🌿', x+4, y+16);
+                        } else if (grid[r][c] === 9) {
+                            ctx.font = '16px Arial'; ctx.fillText('🌀', x+2, y+17);
+                        }
                     }
                 }
             }
@@ -371,14 +390,13 @@ game_js = """
     resetBtn.addEventListener('click', () => {
         currentStage = 1; gameOver = false; gameWin = false; forestKills = 0; waterKills = 0; myMushrooms = 0;
         invAquaGear = false; invAxeCount = 0; equipAquaGear = false; equipAxe = false; hasGun = false; hasKey = false; keySpawned = false;
-        canvas.style.background = "#0f291e"; initGrid(); resetPositions(); canvas.focus();
+        canvas.style.background = "#143a29"; initGrid(); resetPositions(); canvas.focus();
     });
 
     initGrid(); resetPositions();
-    setTimeout(() => { canvas.focus(); }, 300);
+    setTimeout(() => { canvas.style.background = "#143a29"; canvas.focus(); }, 300);
     loop();
 </script>
 """
 
-# 📐 Streamlit iframe의 내부 여백 크기를 기존보다 높여 잘림을 방지합니다.
 components.html(game_js, height=580, width=600)
