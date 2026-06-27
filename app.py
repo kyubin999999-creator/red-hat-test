@@ -3,11 +3,11 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="빨간 모자의 숲속 모험", page_icon="🌲", layout="centered")
 
-st.title("🌲 빨간 모자의 미로 대모험 (늑대 AI 완벽 수정 패치) 🪓")
+st.title("🌲 빨간 모자의 미로 대모험 (늑대 해방 패치) 🪓")
 st.markdown("""
-**🚨 늑대 현역 복귀 완료:**
-* 이제 늑대와 상어가 구석에 박혀서 숨어 있거나 멈추지 않고, 끊임없이 맵 전체를 순찰하며 플레이어를 압박합니다.
-* 벽과 길의 명확한 색상 구분을 유지한 채 AI 조작감만 극대화했습니다!
+**📢 늑대 무죄 판결 및 석방:**
+* 늑대들이 벽 속에 갇히지 않도록 초기 소환 위치(Coordinate)를 벽이 없는 **넓은 평지 길 위로 변경**했습니다.
+* 이제 게임이 시작되자마자 자유를 얻은 늑대들이 활기차게 돌아다닙니다!
 """)
 
 game_js = """
@@ -219,12 +219,9 @@ game_js = """
             if (w.dead) return;
 
             let monsterSpeed = 2;
-
-            // 🚨 [핵심 수정] 늑대 타일 정렬 및 물리 교정 자동화 강화
             let nextWx = w.x + w.dirX * monsterSpeed;
             let nextWy = w.y + w.dirY * monsterSpeed;
 
-            // 한 타일의 경계면 혹은 벽과의 충돌을 선제 체크
             if (w.x % TILE_SIZE === 0 && w.y % TILE_SIZE === 0 || checkWall(nextWx, nextWy)) {
                 w.x = Math.round(w.x / TILE_SIZE) * TILE_SIZE;
                 w.y = Math.round(w.y / TILE_SIZE) * TILE_SIZE;
@@ -237,7 +234,6 @@ game_js = """
                     let minD = 9999999;
                     let isPlayerStrong = hasGun || (currentStage === 1 && equipAxe && invAxeCount > 0) || currentStage === 3;
 
-                    // 플레이어 추적 혹은 회피 방향 가중치 부여
                     validDirs.forEach(d => {
                         let nX = w.x + d.x * TILE_SIZE; let nY = w.y + d.y * TILE_SIZE;
                         let dist = Math.pow(nX - redHat.x, 2) + Math.pow(nY - redHat.y, 2);
@@ -245,25 +241,21 @@ game_js = """
                         else { if (dist < minD) { minD = dist; bestDir = d; } }
                     });
 
-                    // 만약 현재 방향이 완전히 벽에 막히는 상황이라면 강제로 유효한 임의의 탈출 경로 배정
                     if (checkWall(w.x + bestDir.x * TILE_SIZE, w.y + bestDir.y * TILE_SIZE)) {
                         bestDir = validDirs[Math.floor(Math.random() * validDirs.length)];
                     }
 
                     w.dirX = bestDir.x; w.dirY = bestDir.y;
                 } else {
-                    // 사방이 꽉 막힌 버그 상황 발생 시 (예외처리), 사방 중 빈 타일을 찾아 강제 텔레포트 탈출
                     w.dirX = -w.dirX; w.dirY = -w.dirY;
                 }
             }
 
-            // 최종 이동 연산 및 이중 안전 벽 무효화
             let finalX = w.x + w.dirX * monsterSpeed;
             let finalY = w.y + w.dirY * monsterSpeed;
             if (!checkWall(finalX, finalY)) { 
                 w.x = finalX; w.y = finalY; 
             } else { 
-                // 벽 충돌 순간 굳지 않게 유턴 처리
                 w.dirX = -w.dirX; w.dirY = -w.dirY; 
             }
 
@@ -278,11 +270,10 @@ game_js = """
                     w.dead = true; w.x = -999; w.y = -999;
                     if (currentStage === 1) {
                         forestKills++; updateUI();
-                        if (forestKills < 3) { w.dead = false; w.x = 9*TILE_SIZE; w.y = 1*TILE_SIZE; w.dirX = 1; w.dirY = 0; }
+                        if (forestKills < 3) { w.dead = false; w.x = 1*TILE_SIZE; w.y = 1*TILE_SIZE; w.dirX = 1; w.dirY = 0; } // 안전 구역 리스폰
                     } else if (currentStage === 2) {
                         waterKills++; updateUI();
-                        if (waterKills < 3) { w.dead = false; w.x = 9*TILE_SIZE; w.y = 1*TILE_SIZE; w.dirX = -1; w.dirY = 0; } 
-                        else { keySpawned = true; }
+                        if (waterKills < 3) { w.dead = false; w.x = 4*TILE_SIZE; w.y = 1*TILE_SIZE; w.dirX = -1; w.dirY = 0; } // 수중 안전 구역 리스폰
                     } else if (currentStage === 3) {
                         if (wolves.every(wolf => wolf.dead)) updateUI();
                     }
@@ -293,12 +284,13 @@ game_js = """
         });
     }
 
+    // 🗺️ [좌표 전면 수정] 벽(1, 6번 타일)이 절대 없는 안전 구역 바닥(0번)으로 스폰 위치 재배치
     function resetPositions() {
         redHat.x = 1 * TILE_SIZE; redHat.y = 18 * TILE_SIZE; redHat.dirX = 0; redHat.dirY = 0; redHat.nextDirX = 0; redHat.nextDirY = 0;
         wolves = [
-            { x: 2 * TILE_SIZE, y: 1 * TILE_SIZE, dirX: 1, dirY: 0, dead: false },
-            { x: 17 * TILE_SIZE, y: 1 * TILE_SIZE, dirX: -1, dirY: 0, dead: false },
-            { x: 9 * TILE_SIZE, y: 5 * TILE_SIZE, dirX: 0, dirY: 1, dead: false }
+            { x: 1 * TILE_SIZE, y: 1 * TILE_SIZE, dirX: 1, dirY: 0, dead: false },  // 좌측 상단 빈 길목
+            { x: 18 * TILE_SIZE, y: 1 * TILE_SIZE, dirX: -1, dirY: 0, dead: false }, // 우측 상단 빈 길목
+            { x: 10 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: -1, dead: false } // 하단 중앙 빈 길목
         ];
     }
 
