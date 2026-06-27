@@ -5,21 +5,23 @@ st.set_page_config(page_title="빨간 모자의 숲속 모험", page_icon="🌲"
 
 st.title("🌲 빨간 모자와 숲속의 미로 대모험 🪓")
 st.markdown("""
-**⚙️ 버그 수정 및 테스트 편의성 패치 완료:**
-* **우물 워프 정상화:** 이제 1단계에서 버섯을 다 먹고 파란색 우물(`4`)에 닿으면 즉시 2단계 심해로 안전하게 이동합니다.
-* **🛡️ 무적 버그 수정:** 늑대나 상어와 부딪혀도 게임 오버 없이 즉시 부활하거나 처치 처리되어 테스트가 매우 쉽습니다.
+**⚙️ 기능 업데이트 및 버그 수정 완료:**
+* **🛡️ 무적 모드 선택 버튼:** 이제 상단 버튼을 눌러 실시간으로 무적(God) 모드를 켜고 끌 수 있습니다.
+* **🔑 열쇠 습득 버그 완벽 수정:** 2단계에서 상어 3마리를 잡고 나오는 열쇠가 정상적으로 획득되며 3단계로 이동합니다!
 """)
 
 game_js = """
 <div style="text-align: center; font-family: 'Malgun Gothic', sans-serif; color: white;">
-    <div style="display: flex; justify-content: space-between; align-items: center; max-width: 440px; margin: 0 auto 12px auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; max-width: 440px; margin: 0 auto 12px auto; flex-wrap: wrap; gap: 6px;">
         <div style="display: flex; gap: 4px; flex-wrap: wrap;">
             <div id="p-stage" style="padding: 5px 8px; background: #1e293b; color: #f1f5f9; border-radius: 6px; font-weight: bold; font-size: 12px;">🗺️ 1단계 숲속</div>
             <div id="p-mush" style="padding: 5px 8px; background: #065f46; color: #a7f3d0; border-radius: 6px; font-weight: bold; font-size: 12px;">🍄 남은 버섯: 계산중</div>
             <div id="p-kill" style="padding: 5px 8px; background: #7f1d1d; color: #fca5a5; border-radius: 6px; font-weight: bold; font-size: 12px;">🐺 사냥: 0/3</div>
-            <div id="p-item" style="padding: 5px 8px; background: #2563eb; color: white; border-radius: 6px; font-weight: bold; font-size: 12px;">🎒 특성: 🛡️ 무적 모드</div>
         </div>
-        <button id="p-reset" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px;">🔄 리셋</button>
+        <div style="display: flex; gap: 6px;">
+            <button id="p-god" style="padding: 6px 12px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px;">🛡️ 무적 ON</button>
+            <button id="p-reset" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px;">🔄 리셋</button>
+        </div>
     </div>
     
     <canvas id="pacmanCanvas" width="440" height="440" style="border-radius: 16px; box-shadow: 0 12px 30px rgba(0,0,0,0.7); background: #0f291e; border: 4px solid #451a03; outline: none;" tabindex="0"></canvas>
@@ -28,10 +30,12 @@ game_js = """
 <script>
     const canvas = document.getElementById('pacmanCanvas'); const ctx = canvas.getContext('2d');
     const stageUI = document.getElementById('p-stage'); const killUI = document.getElementById('p-kill');
-    const mushUI = document.getElementById('p-mush'); const itemUI = document.getElementById('p-item'); 
+    const mushUI = document.getElementById('p-mush'); const godBtn = document.getElementById('p-god'); 
     const resetBtn = document.getElementById('p-reset');
 
     const TILE_SIZE = 22; const COLS = 20; const ROWS = 20;
+    
+    let isGodMode = true; // 기본값 무적 ON
 
     const forestMap = [
         [1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1],
@@ -87,7 +91,7 @@ game_js = """
     let hasGun = false; let hasKey = false; let keySpawned = false;
     let hasAxe = false;
 
-    let gearPos = {row: 12, col: 9}; let gunPos = {row: 10, col: 10}; let keyPos = {row: 10, col: 9};
+    let gearPos = {row: 12, col: 9}; let gunPos = {row: 10, col: 12}; let keyPos = {row: 12, col: 11};
 
     let redHat = { x: 1 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: 4.5 };
     let wolves = [];
@@ -193,57 +197,45 @@ game_js = """
             redHat.dirX = 0; redHat.dirY = 0;
         }
 
-        let leftCol = Math.floor(redHat.x / TILE_SIZE);
-        let rightCol = Math.floor((redHat.x + TILE_SIZE - 1) / TILE_SIZE);
-        let topRow = Math.floor(redHat.y / TILE_SIZE);
-        let botRow = Math.floor((redHat.y + TILE_SIZE - 1) / TILE_SIZE);
+        // 플레이어 중심 좌표 기준 아이템 충돌 연산 처리 (버그 방지)
+        let pCenterCol = Math.floor((redHat.x + TILE_SIZE / 2) / TILE_SIZE);
+        let pCenterRow = Math.floor((redHat.y + TILE_SIZE / 2) / TILE_SIZE);
 
-        let activeTiles = [
-            {r: topRow, c: leftCol}, {r: topRow, c: rightCol},
-            {r: botRow, c: leftCol}, {r: botRow, c: rightCol}
-        ];
-
-        activeTiles.forEach(pt => {
-            if (pt.r >= 0 && pt.r < ROWS && pt.c >= 0 && pt.c < COLS) {
-                if (grid[pt.r][pt.c] === 2 || grid[pt.r][pt.c] === 7) {
-                    grid[pt.r][pt.c] = 0; updateMushCount();
-                }
-                
-                let axeIndex = activeAxes.findIndex(a => a.r === pt.r && a.c === pt.c);
-                if (axeIndex !== -1) {
-                    activeAxes.splice(axeIndex, 1);
-                    if (!hasGun && currentStage === 1) { 
-                        scaredTimer = 240; hasAxe = true; 
-                        wolves.forEach(w => w.scared = true); 
-                    }
-                }
-                
-                if (currentStage === 1 && gearSpawned && !hasAquaGear && pt.r === gearPos.row && pt.c === gearPos.col) {
-                    hasAquaGear = true;
-                }
-
-                // ⭐ [수정 핵심] 버섯 개수 상관없이 수영장비를 얻었거나 버섯을 다 모은 뒤 우물(4)에 충돌하면 즉시 다음 스테이지로 강제 전송!
-                if (currentStage === 1 && (forestMap[pt.r][pt.c] === 4)) {
-                    currentStage = 2; grid = JSON.parse(JSON.stringify(aquaMap));
-                    canvas.style.background = "#07243a";
-                    stageUI.innerHTML = "🗺️ 2단계 푸른 심해"; stageUI.style.background = "#0284c7";
-                    killUI.innerHTML = "🦈 수중 처치: 0/3"; updateMushCount(); resetPositions(); return;
-                }
-
-                if (currentStage === 2 && !hasGun && pt.r === gunPos.row && pt.c === gunPos.col) {
-                    hasGun = true; wolves.forEach(w => w.scared = true);
-                }
-
-                if (currentStage === 2 && keySpawned && !hasKey && pt.r === keyPos.row && pt.c === keyPos.col) {
-                    hasKey = true; currentStage = 3; grid = JSON.parse(JSON.stringify(forestMap)); 
-                    canvas.style.background = "#0f291e";
-                    stageUI.innerHTML = "🗺️ 3단계 최종전"; stageUI.style.background = "#b45309";
-                    killUI.innerHTML = "🐺 남은 늑대 소탕!"; resetPositions();
-                    wolves.forEach(w => { w.dead = false; w.scared = true; }); return;
-                }
-                if (currentStage === 3 && forestMap[pt.r][pt.c] === 5) { if (wolves.every(w => w.dead)) gameWin = true; }
+        if (pCenterRow >= 0 && pCenterRow < ROWS && pCenterCol >= 0 && pCenterCol < COLS) {
+            if (grid[pCenterRow][pCenterCol] === 2 || grid[pCenterRow][pCenterCol] === 7) {
+                grid[pCenterRow][pCenterCol] = 0; updateMushCount();
             }
-        });
+            
+            let axeIndex = activeAxes.findIndex(a => a.r === pCenterRow && a.c === pCenterCol);
+            if (axeIndex !== -1) {
+                activeAxes.splice(axeIndex, 1);
+                if (!hasGun && currentStage === 1) { 
+                    scaredTimer = 240; hasAxe = true; 
+                    wolves.forEach(w => w.scared = true); 
+                }
+            }
+
+            if (currentStage === 1 && (forestMap[pCenterRow][pCenterCol] === 4)) {
+                currentStage = 2; grid = JSON.parse(JSON.stringify(aquaMap));
+                canvas.style.background = "#07243a";
+                stageUI.innerHTML = "🗺️ 2단계 푸른 심해"; stageUI.style.background = "#0284c7";
+                killUI.innerHTML = "🦈 수중 처치: 0/3"; updateMushCount(); resetPositions(); return;
+            }
+
+            if (currentStage === 2 && !hasGun && pCenterRow === gunPos.row && pCenterCol === gunPos.col) {
+                hasGun = true; wolves.forEach(w => w.scared = true);
+            }
+
+            // ⭐ [열쇠 습득 버그 수정 완료] 중심점 좌표 매칭 방식으로 확실하게 열쇠 획득 후 3단계 이동
+            if (currentStage === 2 && keySpawned && !hasKey && pCenterRow === keyPos.row && pCenterCol === keyPos.col) {
+                hasKey = true; currentStage = 3; grid = JSON.parse(JSON.stringify(forestMap)); 
+                canvas.style.background = "#0f291e";
+                stageUI.innerHTML = "🗺️ 3단계 최종전"; stageUI.style.background = "#b45309";
+                killUI.innerHTML = "🐺 남은 늑대 소탕!"; resetPositions();
+                wolves.forEach(w => { w.dead = false; w.scared = true; }); return;
+            }
+            if (currentStage === 3 && forestMap[pCenterRow][pCenterCol] === 5) { if (wolves.every(w => w.dead)) gameWin = true; }
+        }
 
         wolves.forEach(w => {
             if (w.dead) return;
@@ -274,21 +266,25 @@ game_js = """
             if (!checkWall(nWpX, nWpY)) { w.x = nWpX; w.y = nWpY; }
             else { w.x = Math.round(w.x/TILE_SIZE)*TILE_SIZE; w.y = Math.round(w.y/TILE_SIZE)*TILE_SIZE; w.dirX = -w.dirX; w.dirY = -w.dirY; }
 
-            // 🛡️ 무적 모드 활성화: 늑대와 닿으면 무조건 플레이어가 물리칩니다. (게임오버 없음)
+            // 🛡️ 전투/피격 판정
             if (Math.abs(redHat.x - w.x) < TILE_SIZE * 0.7 && Math.abs(redHat.y - w.y) < TILE_SIZE * 0.7) {
-                w.dead = true; w.x = -999; w.y = -999; 
-                if (currentStage === 1) {
-                    forestKills++; killUI.innerHTML = `🐺 늑대 사냥: ${forestKills}/3`;
-                    w.dead = false; w.x = 2*TILE_SIZE; w.y = 1*TILE_SIZE; 
-                    if (forestKills >= 3) { gearSpawned = true; }
-                } else if (currentStage === 2) {
-                    waterKills++; killUI.innerHTML = `🦈 수중 처치: ${waterKills}/3`;
-                    w.dead = false; w.x = 9*TILE_SIZE; w.y = 10*TILE_SIZE; 
-                    if (waterKills >= 3) { keySpawned = true; }
-                } else if (currentStage === 3) {
-                    let remaining = wolves.filter(wolf => !wolf.dead).length;
-                    if (remaining === 0) killUI.innerHTML = "🏡 할머니 집으로 복귀 가능!";
-                    else killUI.innerHTML = `🐺 남은 늑대 수: ${remaining}마리`;
+                if (w.scared || hasGun || currentStage === 3 || isGodMode) { 
+                    w.dead = true; w.x = -999; w.y = -999; 
+                    if (currentStage === 1) {
+                        forestKills++; killUI.innerHTML = `🐺 늑대 사냥: ${forestKills}/3`;
+                        w.dead = false; w.x = 2*TILE_SIZE; w.y = 1*TILE_SIZE; 
+                        if (forestKills >= 3) { gearSpawned = true; }
+                    } else if (currentStage === 2) {
+                        waterKills++; killUI.innerHTML = `🦈 수중 처치: ${waterKills}/3`;
+                        w.dead = false; w.x = 9*TILE_SIZE; w.y = 10*TILE_SIZE; 
+                        if (waterKills >= 3) { keySpawned = true; }
+                    } else if (currentStage === 3) {
+                        let remaining = wolves.filter(wolf => !wolf.dead).length;
+                        if (remaining === 0) killUI.innerHTML = "🏡 할머니 집으로 복귀 가능!";
+                        else killUI.innerHTML = `🐺 남은 늑대 수: ${remaining}마리`;
+                    }
+                } else { 
+                    gameOver = true; 
                 }
             }
         });
@@ -346,8 +342,8 @@ game_js = """
         ctx.shadowColor = 'transparent'; 
         if (currentStage === 1) { ctx.font = '16px Arial'; ctx.fillText('🤿', gearPos.col*TILE_SIZE+3, gearPos.row*TILE_SIZE+18); }
         if (currentStage === 2) { 
-            ctx.font = '16px Arial'; ctx.fillText('🔫', gunPos.col*TILE_SIZE+3, gunPos.row*TILE_SIZE+18); 
-            ctx.fillText('🔑', keyPos.col*TILE_SIZE+3, keyPos.row*TILE_SIZE+18);
+            if (!hasGun) ctx.font = '16px Arial'; ctx.fillText('🔫', gunPos.col*TILE_SIZE+3, gunPos.row*TILE_SIZE+18); 
+            if (keySpawned && !hasKey) ctx.font = '16px Arial'; ctx.fillText('🔑', keyPos.col*TILE_SIZE+3, keyPos.row*TILE_SIZE+18);
         }
 
         ctx.shadowBlur = 4; ctx.shadowColor = 'rgba(0,0,0,0.4)';
@@ -366,6 +362,10 @@ game_js = """
             ctx.restore();
         });
 
+        if (gameOver) {
+            ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.fillStyle = '#ef4444'; ctx.font = 'bold 30px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('GAME OVER', canvas.width/2, canvas.height/2);
+        }
         if (gameWin) {
             ctx.fillStyle = 'rgba(15,23,42,0.95)'; ctx.fillRect(0,0,canvas.width,canvas.height);
             ctx.fillStyle = '#facc15'; ctx.font = 'bold 26px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('👑 TEST SUCCESS 👑', canvas.width/2, canvas.height/2 - 10);
@@ -374,8 +374,20 @@ game_js = """
 
     function loop() { update(); draw(); requestAnimationFrame(loop); }
 
+    // 🛡️ 무적 모드 토글 버튼 이벤트
+    godBtn.addEventListener('click', () => {
+        isGodMode = !isGodMode;
+        if(isGodMode) {
+            godBtn.innerHTML = "🛡️ 무적 ON"; godBtn.style.background = "#2563eb";
+        } else {
+            godBtn.innerHTML = "⚔️ 일반 모드"; godBtn.style.background = "#475569";
+        }
+        canvas.focus();
+    });
+
     resetBtn.addEventListener('click', () => {
         currentStage = 1; gameOver = false; gameWin = false; forestKills = 0; waterKills = 0;
+        hasAquaGear = false; gearSpawned = false; hasGun = false; hasKey = false; keySpawned = false; hasAxe = false;
         canvas.style.background = "#0f291e";
         stageUI.innerHTML = "🗺️ 1단계 숲속 미로"; stageUI.style.background = "#1e293b";
         killUI.innerHTML = "🐺 늑대 사냥: 0/3";
