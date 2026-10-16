@@ -3,15 +3,27 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="빨간 모자의 숲속 모험", page_icon="🌲", layout="centered")
 
-st.title("🌲 빨간 모자의 미로 대모험 (무한 리스폰 패치) 🪓")
+st.title("🌲 빨간 모자의 미로 대모험 🪓")
 st.markdown("""
-**🚨 경고: 늑대 무한 증식 중!**
-* 이제 늑대와 상어를 처치해도 완전히 사라지지 않고 **끝없이 부활**합니다!
-* 끊임없이 밀려오는 늑대들을 피해 버섯을 모으고 탈출하세요!
+**⚙️ 안내:**
+* 올바른 모험 순서와 목표가 상단 가이드 패널에 항상 표시됩니다.
+* 늑대와 상어가 끊임없이 밀려오는 미로를 헤쳐나가 할머니의 집(🏡)에 무사히 도달해보세요!
 """)
 
 game_js = """
 <div style="text-align: center; font-family: 'Malgun Gothic', sans-serif; color: white; width: 570px; margin: 0 auto;">
+    
+    <!-- 📜 전면 배치된 게임 가이드 -->
+    <div style="width: 560px; margin: 0 auto 12px auto; background: #0f172a; padding: 12px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); border: 1px solid #334155; text-align: left; box-sizing: border-box;">
+        <h4 style="margin: 0 0 6px 0; color: #facc15; font-size: 13px;">🗺️ 올바른 모험 순서 가이드</h4>
+        <ol style="margin: 0; padding-left: 18px; font-size: 11px; color: #cbd5e1; line-height: 1.6;">
+            <li><strong style="color: white;">1단계(숲):</strong> 돌아다니는 늑대를 피해 🍄버섯을 모아 오른쪽 상점에서 <span style="color: #0284c7;">🤿수영장비(버섯40개)</span>를 구매한 뒤, 키보드 <kbd>2</kbd>를 눌러 착용하고 🟦<strong style="color: #3b82f6;">우물</strong>로 들어가세요.</li>
+            <li><strong style="color: white;">2단계(심해):</strong> 물속에서 움직이는 상어들을 피해 바닥에 떨어진 <strong style="color: #f43f5e;">🔫총</strong>을 주우세요. 상어를 3번 처치하면 나타나는 <strong style="color: #eab308;">🔑열쇠</strong>를 획득하여 탈출구(🌀)로 나가세요.</li>
+            <li><strong style="color: white;">3단계(최종):</strong> 숲으로 복귀하여 모든 늑대들을 소탕하세요. 늑대가 모두 사라지면 잠겨있던 할머니의 <strong style="color: #f43f5e;">집(🏡)</strong> 문이 열립니다. 집 안으로 안전하게 들어가면 미션 성공!</li>
+        </ol>
+    </div>
+
+    <!-- 🎛️ 실시간 정보창 -->
     <div style="display: flex; flex-direction: column; gap: 8px; width: 560px; margin: 0 auto 12px auto; background: #1e293b; padding: 10px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); box-sizing: border-box;">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
             <div id="p-stage" style="padding: 5px 8px; background: #0f172a; color: #f1f5f9; border-radius: 6px; font-weight: bold; font-size: 11px;">🗺️ 1단계 숲속</div>
@@ -21,11 +33,7 @@ game_js = """
         </div>
         <hr style="border: 0; border-top: 1px solid #334155; margin: 4px 0;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; align-items: center; gap: 6px; background: #0f172a; padding: 4px 8px; border-radius: 6px;">
-                <span style="font-size: 11px; font-weight: bold; color: #cbd5e1;">🏃 속도:</span>
-                <input type="range" id="p-speed" min="2" max="6" step="1" value="4" style="width: 80px; cursor: pointer;">
-                <span id="p-speed-val" style="font-size: 11px; font-weight: bold; color: #facc15;">4</span>
-            </div>
+            <div style="font-size: 11px; color: #a1a1aa; font-weight: bold;" id="p-objective">🎯 목표: 버섯 40개를 모아 수영장비를 사서 우물로 가세요!</div>
             <div style="display: flex; gap: 4px;">
                 <button id="p-god" style="padding: 6px 10px; background: #475569; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 11px;">⚔️ 일반 모드</button>
                 <button id="p-reset" style="padding: 6px 10px; background: #ef4444; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 11px;">🔄 리셋</button>
@@ -40,23 +48,19 @@ game_js = """
     const canvas = document.getElementById('pacmanCanvas'); const ctx = canvas.getContext('2d');
     const stageUI = document.getElementById('p-stage'); const killUI = document.getElementById('p-kill');
     const mushUI = document.getElementById('p-mush'); const invUI = document.getElementById('p-inventory');
+    const objUI = document.getElementById('p-objective');
     const godBtn = document.getElementById('p-god'); const resetBtn = document.getElementById('p-reset');
-    const speedInput = document.getElementById('p-speed'); const speedVal = document.getElementById('p-speed-val');
 
     const TILE_SIZE = 22; const COLS = 20; const ROWS = 20; 
     
-    let isGodMode = false; 
-    let myMushrooms = 0;
-    let currentStage = 1; 
+    let isGodMode = false; let myMushrooms = 0; let currentStage = 1; 
     let gameOver = false; let gameWin = false;
 
     let forestKills = 0; let waterKills = 0;
     let hasGun = false; let hasKey = false; let keySpawned = false;
 
-    let invAquaGear = false; 
-    let invAxeCount = 0;      
-    let equipAquaGear = false;
-    let equipAxe = false;
+    let invAquaGear = false; let invAxeCount = 0;      
+    let equipAquaGear = false; let equipAxe = false;
 
     const forestMap = [
         [1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1],
@@ -105,9 +109,9 @@ game_js = """
     ];
 
     let grid = [];
-    let gunPos = {row: 10, col: 12}; let keyPos = {row: 13, col: 10};
+    let gunPos = {row: 12, col: 2}; let keyPos = {row: 10, col: 9};
 
-    let redHat = { x: 1 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: parseInt(speedInput.value) };
+    let redHat = { x: 1 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, speed: 4 };
     let wolves = [];
 
     function initGrid() {
@@ -127,18 +131,24 @@ game_js = """
         if (invAxeCount > 0) items.push(equipAxe ? `▶🪓도끼x${invAxeCount}(ON)◀` : `🪓도끼x${invAxeCount}`);
         if (hasGun) items.push("🔫총");
         if (hasKey) items.push("🔑열쇠");
-        
         invUI.innerHTML = `🎒 인벤: ${items.length > 0 ? items.join(", ") : "비어있음"} [1:도끼 2:수영]`;
 
-        if (currentStage === 1) { stageUI.innerHTML = "🗺️ 1단계 숲속"; stageUI.style.background = "#1e293b"; killUI.innerHTML = `🐺 늑대 사냥: ${forestKills}/3`; }
-        else if (currentStage === 2) { stageUI.innerHTML = "🗺️ 2단계 푸른 심해"; stageUI.style.background = "#0284c7"; killUI.innerHTML = `🦈 수중 처치: ${waterKills}/3`; }
-        else if (currentStage === 3) { stageUI.innerHTML = "🗺️ 3단계 최종전"; stageUI.style.background = "#b45309"; killUI.innerHTML = "🐺 남은 늑대 소탕!"; }
+        if (currentStage === 1) { 
+            stageUI.innerHTML = "🗺️ 1단계 숲속"; stageUI.style.background = "#1e293b"; killUI.innerHTML = `🐺 늑대 사냥: ${forestKills}/3`; 
+            objUI.innerHTML = "🎯 목표: 버섯 40개 모아 수영장비 구매 후 장착(숫자키 2)하고 우물로 진입!";
+        } else if (currentStage === 2) { 
+            stageUI.innerHTML = "🗺️ 2단계 푸른 심해"; stageUI.style.background = "#0284c7"; killUI.innerHTML = `🦈 상어 처치: ${waterKills}/3`; 
+            objUI.innerHTML = hasGun ? "🎯 목표: 상어를 3번 사냥하여 열쇠(🔑)를 획득한 후 소용돌이(🌀)로 탈출!" : "🎯 목표: 상어를 피해 좌하단 구석으로 이동하여 🔫총을 먼저 획득하세요!";
+        } else if (currentStage === 3) { 
+            stageUI.innerHTML = "🗺️ 3단계 최종전"; stageUI.style.background = "#b45309"; 
+            let remaining = wolves.filter(w => !w.dead).length;
+            killUI.innerHTML = `🐺 남은 늑대: ${remaining}마리`; 
+            objUI.innerHTML = remaining > 0 ? `🎯 목표: 총으로 남은 늑대들을 전부 소탕하세요! (${remaining}마리 남음)` : "🎯 목표: 문이 열렸습니다! 북쪽 중앙의 할머니 집(🏡) 타일 안으로 진입하세요!";
+        }
     }
 
     function spawnMushroomLater(r, c) {
-        setTimeout(() => {
-            if ((currentStage === 1 || currentStage === 3) && grid[r][c] === 0) { grid[r][c] = 2; }
-        }, 1000);
+        setTimeout(() => { if ((currentStage === 1 || currentStage === 3) && grid[r][c] === 0) { grid[r][c] = 2; } }, 1000);
     }
 
     window.addEventListener('keydown', e => { if([37, 38, 39, 40, 49, 50].indexOf(e.keyCode) > -1) { e.preventDefault(); canvas.focus(); } }, {passive: false});
@@ -148,7 +158,6 @@ game_js = """
         if(e.keyCode === 39) { redHat.nextDirX = 1; redHat.nextDirY = 0; }
         if(e.keyCode === 38) { redHat.nextDirX = 0; redHat.nextDirY = -1; }
         if(e.keyCode === 40) { redHat.nextDirX = 0; redHat.nextDirY = 1; }
-        
         if(e.keyCode === 49) { if (invAxeCount > 0) { equipAxe = !equipAxe; updateUI(); } }
         if(e.keyCode === 50) { if (invAquaGear) { equipAquaGear = !equipAquaGear; updateUI(); } }
     });
@@ -195,12 +204,200 @@ game_js = """
 
             if (currentStage === 1 && grid[pR][pC] === 4) {
                 if (equipAquaGear || isGodMode) {
-                    currentStage = 2; canvas.style.background = "#112d42"; 
-                    initGrid(); resetPositions(); return;
+                    currentStage = 2; canvas.style.background = "#112d42"; initGrid(); resetPositions(); return;
                 }
             }
 
-            if (currentStage === 2 && grid[pR][pC] === 9) {
-                currentStage = 1; canvas.style.background = "#143a29"; 
-                initGrid(); resetPositions(); return;
+            if (currentStage === 2 && grid[pR][pC] === 9 && hasKey) {
+                currentStage = 3; canvas.style.background = "#143a29"; initGrid(); resetPositions(); return;
             }
+
+            if (currentStage === 2 && !hasGun && pR === gunPos.row && pC === gunPos.col) { hasGun = true; updateUI(); }
+            if (currentStage === 2 && keySpawned && !hasKey && pR === keyPos.row && pC === keyPos.col) { hasKey = true; updateUI(); }
+
+            if (currentStage === 3 && grid[pR][pC] === 5 && wolves.every(w => w.dead)) { gameWin = true; }
+        }
+
+        wolves.forEach(w => {
+            if (w.dead) return;
+
+            let monsterSpeed = 2;
+            let nextWx = w.x + w.dirX * monsterSpeed;
+            let nextWy = w.y + w.dirY * monsterSpeed;
+
+            if (w.x % TILE_SIZE === 0 && w.y % TILE_SIZE === 0 || checkWall(nextWx, nextWy)) {
+                w.x = Math.round(w.x / TILE_SIZE) * TILE_SIZE;
+                w.y = Math.round(w.y / TILE_SIZE) * TILE_SIZE;
+
+                let dirs = [{x:1, y:0}, {x:-1, y:0}, {x:0, y:1}, {x:0, y:-1}];
+                let validDirs = dirs.filter(d => !checkWall(w.x + d.x * TILE_SIZE, w.y + d.y * TILE_SIZE));
+
+                if (validDirs.length > 0) {
+                    let bestDir = validDirs[Math.floor(Math.random() * validDirs.length)];
+                    let minD = 9999999;
+                    let isPlayerStrong = hasGun || (currentStage === 1 && equipAxe && invAxeCount > 0) || currentStage === 3;
+
+                    validDirs.forEach(d => {
+                        let nX = w.x + d.x * TILE_SIZE; let nY = w.y + d.y * TILE_SIZE;
+                        let dist = Math.pow(nX - redHat.x, 2) + Math.pow(nY - redHat.y, 2);
+                        if (isPlayerStrong) { if (dist > minD || minD === 9999999) { minD = dist; bestDir = d; } } 
+                        else { if (dist < minD) { minD = dist; bestDir = d; } }
+                    });
+
+                    w.dirX = bestDir.x; w.dirY = bestDir.y;
+                } else {
+                    w.dirX = -w.dirX; w.dirY = -w.dirY;
+                }
+            }
+
+            let finalX = w.x + w.dirX * monsterSpeed;
+            let finalY = w.y + w.dirY * monsterSpeed;
+            if (!checkWall(finalX, finalY)) { w.x = finalX; w.y = finalY; } else { w.dirX = -w.dirX; w.dirY = -w.dirY; }
+
+            if (Math.abs(redHat.x - w.x) < TILE_SIZE * 0.7 && Math.abs(redHat.y - w.y) < TILE_SIZE * 0.7) {
+                let canKill = isGodMode || hasGun || (currentStage === 1 && equipAxe && invAxeCount > 0) || currentStage === 3;
+                
+                if (canKill) {
+                    if (!isGodMode && !hasGun && currentStage === 1 && equipAxe) {
+                        invAxeCount--; if (invAxeCount <= 0) equipAxe = false; 
+                    }
+                    
+                    if (currentStage === 1) {
+                        forestKills++; updateUI();
+                        w.x = 1 * TILE_SIZE; w.y = 1 * TILE_SIZE;
+                    } else if (currentStage === 2) {
+                        waterKills++; updateUI();
+                        if (waterKills >= 3) { keySpawned = true; }
+                        w.x = 4 * TILE_SIZE; w.y = 1 * TILE_SIZE;
+                    } else if (currentStage === 3) {
+                        w.dead = true; w.x = -999; w.y = -999; updateUI();
+                    }
+                } else {
+                    gameOver = true;
+                }
+            }
+        });
+    }
+
+    function resetPositions() {
+        redHat.x = 1 * TILE_SIZE; redHat.y = 18 * TILE_SIZE; redHat.dirX = 0; redHat.dirY = 0; redHat.nextDirX = 0; redHat.nextDirY = 0;
+        if (currentStage === 2) {
+            wolves = [
+                { x: 4 * TILE_SIZE, y: 1 * TILE_SIZE, dirX: 1, dirY: 0, dead: false },  
+                { x: 15 * TILE_SIZE, y: 1 * TILE_SIZE, dirX: -1, dirY: 0, dead: false }, 
+                { x: 10 * TILE_SIZE, y: 12 * TILE_SIZE, dirX: 0, dirY: -1, dead: false } 
+            ];
+        } else {
+            wolves = [
+                { x: 1 * TILE_SIZE, y: 1 * TILE_SIZE, dirX: 1, dirY: 0, dead: false },  
+                { x: 18 * TILE_SIZE, y: 1 * TILE_SIZE, dirX: -1, dirY: 0, dead: false }, 
+                { x: 10 * TILE_SIZE, y: 18 * TILE_SIZE, dirX: 0, dirY: -1, dead: false } 
+            ];
+        }
+        updateUI();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                let x = c * TILE_SIZE; let y = r * TILE_SIZE;
+                if (currentStage === 1 || currentStage === 3) {
+                    if (grid[r][c] === 1) {
+                        ctx.fillStyle = '#01241a'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE); 
+                        ctx.fillStyle = '#065f46'; ctx.fillRect(x, y, TILE_SIZE, 2); 
+                    } else {
+                        ctx.fillStyle = '#143a29'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                        if (grid[r][c] === 4) {
+                            ctx.fillStyle = '#1d4ed8'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                            ctx.fillStyle = 'white'; ctx.font = 'bold 9px sans-serif'; ctx.fillText('우물', x+2, y+14);
+                        } else if (grid[r][c] === 5) {
+                            ctx.font = '15px Arial'; ctx.fillText('🏡', x+3, y+16);
+                            if (currentStage === 3 && wolves.every(w => w.dead)) {
+                                ctx.fillStyle = 'rgba(234, 179, 8, 0.3)'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                            }
+                        }
+                        if (grid[r][c] === 2) { ctx.font = '12px Arial'; ctx.fillText('🍄', x+4, y+16); }
+                    }
+                } else if (currentStage === 2) {
+                    if (grid[r][c] === 6) {
+                        ctx.fillStyle = '#090d16'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    } else {
+                        ctx.fillStyle = '#112d42'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                        if (grid[r][c] === 7) {
+                            ctx.font = '12px Arial'; ctx.fillText('🌿', x+4, y+16);
+                        } else if (grid[r][c] === 9) {
+                            ctx.font = '16px Arial'; ctx.fillText('🌀', x+2, y+17);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (currentStage === 2) {
+            if (!hasGun) { ctx.font = '16px Arial'; ctx.fillText('🔫', gunPos.col*TILE_SIZE+3, gunPos.row*TILE_SIZE+18); }
+            if (keySpawned && !hasKey) { ctx.font = '16px Arial'; ctx.fillText('🔑', keyPos.col*TILE_SIZE+3, keyPos.row*TILE_SIZE+18); }
+        }
+
+        let px = redHat.x + TILE_SIZE/2; let py = redHat.y + TILE_SIZE/2;
+        ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI*2); ctx.fillStyle = '#facc15'; ctx.fill();
+        ctx.beginPath(); ctx.arc(px, py+2, 5, 0, Math.PI*2); ctx.fillStyle = '#ef4444'; ctx.fill();
+
+        if (equipAxe) { ctx.font = '10px Arial'; ctx.fillText('🪓', redHat.x-4, redHat.y+4); }
+        if (equipAquaGear) { ctx.font = '10px Arial'; ctx.fillText('🤿', redHat.x+14, redHat.y+4); }
+
+        wolves.forEach(w => {
+            if (w.dead) return;
+            ctx.font = '16px Arial'; ctx.fillText(currentStage === 2 ? '🦈' : '🐺', w.x+3, w.y+17);
+        });
+
+        ctx.fillStyle = '#1e293b'; ctx.fillRect(440, 0, 120, 440);
+        ctx.fillStyle = '#334155'; ctx.fillRect(440, 0, 4, 440);
+        ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 13px sans-serif'; ctx.fillText('🛒 버섯 상점', 455, 30);
+        
+        ctx.fillStyle = invAquaGear ? '#475569' : '#0284c7'; ctx.fillRect(450, 60, 100, 45);
+        ctx.fillStyle = '#ffffff'; ctx.font = '11px sans-serif'; ctx.fillText('🤿 수영장비', 462, 78);
+        ctx.fillStyle = '#facc15'; ctx.fillText('🍄 40개 필요', 466, 95);
+
+        ctx.fillStyle = '#b45309'; ctx.fillRect(450, 120, 100, 45);
+        ctx.fillStyle = '#ffffff'; ctx.font = '11px sans-serif'; ctx.fillText('🪓 무기도끼', 462, 138);
+        ctx.fillStyle = '#facc15'; ctx.fillText('🍄 20개 필요', 469, 155);
+
+        if (gameOver) {
+            ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.fillStyle = '#ef4444'; ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('GAME OVER (충돌)', 280, 220);
+            ctx.textAlign = 'start'; 
+        }
+        if (gameWin) {
+            ctx.fillStyle = 'rgba(15,23,42,0.95)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.fillStyle = '#facc15'; ctx.font = 'bold 26px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('👑 할머니 집 도착! 대성공! 👑', 280, 220);
+            ctx.textAlign = 'start';
+        }
+    }
+
+    canvas.addEventListener('click', (e) => {
+        let rect = canvas.getBoundingClientRect();
+        let clickX = e.clientX - rect.left; let clickY = e.clientY - rect.top;
+        if (clickX >= 450 && clickX <= 550) {
+            if (clickY >= 60 && clickY <= 105 && !invAquaGear && myMushrooms >= 40) { myMushrooms -= 40; invAquaGear = true; updateUI(); }
+            if (clickY >= 120 && clickY <= 165 && myMushrooms >= 20) { myMushrooms -= 20; invAxeCount++; updateUI(); }
+        }
+    });
+
+    function loop() { update(); draw(); requestAnimationFrame(loop); }
+
+    godBtn.addEventListener('click', () => { isGodMode = !isGodMode; godBtn.innerHTML = isGodMode ? "🛡️ 무적 ON" : "⚔️ 일반 모드"; godBtn.style.background = isGodMode ? "#2563eb" : "#475569"; canvas.focus(); });
+    resetBtn.addEventListener('click', () => {
+        currentStage = 1; gameOver = false; gameWin = false; forestKills = 0; waterKills = 0; myMushrooms = 0;
+        invAquaGear = false; invAxeCount = 0; equipAquaGear = false; equipAxe = false; hasGun = false; hasKey = false; keySpawned = false;
+        canvas.style.background = "#143a29"; initGrid(); resetPositions(); canvas.focus();
+    });
+
+    initGrid(); resetPositions();
+    setTimeout(() => { canvas.style.background = "#143a29"; canvas.focus(); }, 300);
+    loop();
+</script>
+"""
+
+components.html(game_js, height=620, width=600)
